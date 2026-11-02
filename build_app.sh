@@ -76,26 +76,70 @@ import subprocess, os
 # Create base 512x512 SVG with dark squircle and glowing clone glyph
 svg_content = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#242633"/>
-      <stop offset="100%" stop-color="#0E0F14"/>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E202B"/>
+      <stop offset="40%" stop-color="#14151D"/>
+      <stop offset="100%" stop-color="#0A0B0E"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#60A5FA"/>
-      <stop offset="100%" stop-color="#2563EB"/>
+
+    <!-- Front Glass Gradient -->
+    <linearGradient id="glassFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#282B3A" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#13151F" stop-opacity="0.95"/>
     </linearGradient>
+
+    <!-- Glowing Electric Border -->
+    <linearGradient id="electricGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+
+    <!-- Soft Glow Filter -->
     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feGaussianBlur stdDeviation="12" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
+
+    <!-- Shadow for Depth -->
+    <filter id="cardShadow" x="-20%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
   </defs>
-  <!-- Apple Squircle Shape -->
-  <rect x="32" y="32" width="448" height="448" rx="100" fill="url(#bg)" stroke="rgba(255,255,255,0.12)" stroke-width="3"/>
-  <!-- Cloned Windows / Boxes -->
-  <rect x="130" y="190" width="180" height="180" rx="36" fill="none" stroke="#4B5563" stroke-width="16" />
-  <rect x="202" y="142" width="180" height="180" rx="36" fill="#181A22" stroke="url(#accent)" stroke-width="18" filter="url(#glow)"/>
-  <!-- Glowing Center Dot -->
-  <circle cx="292" cy="232" r="24" fill="#60A5FA"/>
+
+  <!-- Outer Squircle with Chamfer / Bevel -->
+  <rect x="32" y="32" width="448" height="448" rx="104" fill="url(#bgGrad)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="2.5"/>
+
+  <!-- Subtle Top Specular Sheen -->
+  <path d="M 136 34 L 376 34 A 104 104 0 0 1 478 136 L 478 160 A 104 104 0 0 0 376 56 L 136 56 A 104 104 0 0 0 34 160 L 34 136 A 104 104 0 0 1 136 34 Z" fill="rgba(255, 255, 255, 0.08)"/>
+
+  <!-- Back Cloned Window (Original) -->
+  <g filter="url(#cardShadow)">
+    <rect x="110" y="170" width="200" height="200" rx="42" fill="#151722" stroke="rgba(255,255,255,0.15)" stroke-width="6"/>
+    <!-- Subtle traffic dots on back window -->
+    <circle cx="150" cy="204" r="7" fill="#EF4444" opacity="0.6"/>
+    <circle cx="172" cy="204" r="7" fill="#F59E0B" opacity="0.6"/>
+    <circle cx="194" cy="204" r="7" fill="#10B981" opacity="0.6"/>
+  </g>
+
+  <!-- Front Cloned Window (Active Clone) with Neon Glow -->
+  <g filter="url(#cardShadow)">
+    <rect x="202" y="142" width="200" height="200" rx="42" fill="url(#glassFront)" stroke="url(#electricGrad)" stroke-width="8" filter="url(#glow)"/>
+    <!-- Front window traffic dots -->
+    <circle cx="242" cy="176" r="7" fill="#EF4444"/>
+    <circle cx="264" cy="176" r="7" fill="#F59E0B"/>
+    <circle cx="286" cy="176" r="7" fill="#10B981"/>
+    
+    <!-- Central Clone Duality Symbol -->
+    <circle cx="302" cy="242" r="34" fill="none" stroke="url(#electricGrad)" stroke-width="8"/>
+    <circle cx="302" cy="242" r="14" fill="#38BDF8"/>
+    <!-- Orbiting Account Ring -->
+    <circle cx="330" cy="214" r="8" fill="#818CF8"/>
+  </g>
+
+  <!-- Connecting Energy Arc between Instances -->
+  <path d="M 210 270 Q 230 220 260 210" fill="none" stroke="#38BDF8" stroke-width="4" stroke-dasharray="6,6" opacity="0.8"/>
 </svg>"""
 
 with open("/tmp/cloner_icon.svg", "w") as f:

@@ -59,8 +59,52 @@ class ClonerEngine:
         os.makedirs(self.cloner_dir, exist_ok=True)
         os.makedirs(self.data_root, exist_ok=True)
 
+    def check_has_account_login(self, app_path: str) -> tuple:
+        """Determines if an application has an account/login system or is a simple local utility."""
+        name = os.path.basename(app_path).replace(".app", "").lower()
+        # Known account-based AI and productivity applications
+        known_with_login = [
+            "chatgpt", "claude", "antigravity", "gemini", "cursor", "copilot",
+            "obsidian", "slack", "discord", "notion", "chrome", "firefox",
+            "telegram", "whatsapp", "teams", "zoom", "postman", "linear",
+            "spotify", "figma", "vscode", "visual studio code"
+        ]
+        if any(k in name for k in known_with_login):
+            return True, "Verified account-based application"
+
+        # Check Info.plist URL schemes for OAuth / login
+        plist_path = os.path.join(app_path, "Contents", "Info.plist")
+        if os.path.exists(plist_path):
+            try:
+                with open(plist_path, "rb") as f:
+                    p = plistlib.load(f)
+                url_types = p.get("CFBundleURLTypes", [])
+                for ut in url_types:
+                    schemes = [s.lower() for s in ut.get("CFBundleURLSchemes", [])]
+                    if any("auth" in s or "login" in s or "sso" in s or "token" in s for s in schemes):
+                        return True, "Registered authentication URL scheme"
+            except Exception:
+                pass
+
+        # Check binary strings for auth / account management keywords
+        exec_dir = os.path.join(app_path, "Contents", "MacOS")
+        if os.path.exists(exec_dir):
+            execs = [os.path.join(exec_dir, f) for f in os.listdir(exec_dir) if not f.startswith(".")]
+            if execs:
+                try:
+                    res = subprocess.run(["strings", execs[0]], capture_output=True, text=True, errors="ignore")
+                    text = res.stdout.lower()
+                    auth_keywords = ["oauth", "sign in", "login", "user_id", "access_token", "refresh_token", "authentication", "session_token"]
+                    matches = [k for k in auth_keywords if k in text]
+                    if len(matches) >= 3:
+                        return True, "Contains account and session infrastructure"
+                except Exception:
+                    pass
+
+        return False, "Simple local utility with no account/login features"
+
     def scan_installed_apps(self) -> List[Dict[str, Any]]:
-        """Scans the system for supported AI applications and any other valid apps."""
+        """Scans the system for supported AI applications and account-based apps."""
         results = []
         seen_paths = set()
 
@@ -72,6 +116,7 @@ class ClonerEngine:
                     if app_info:
                         app_info["is_featured"] = True
                         app_info["key"] = known["key"]
+                        app_info["has_login"] = True
                         results.append(app_info)
                         seen_paths.add(p)
 
@@ -89,10 +134,17 @@ class ClonerEngine:
                 # Skip helper apps or system internals
                 if "Helper" in item or "Service" in item or "Uninstaller" in item:
                     continue
+                
+                # Check if this app actually has a login/account feature
+                has_login, reason = self.check_has_account_login(full_path)
+                if not has_login:
+                    continue
+
                 app_info = self._inspect_app(full_path)
                 if app_info:
                     app_info["is_featured"] = False
                     app_info["key"] = item.replace(".app", "").lower().replace(" ", "-")
+                    app_info["has_login"] = True
                     results.append(app_info)
                     seen_paths.add(full_path)
 
@@ -244,6 +296,14 @@ class ClonerEngine:
         app_info = self._inspect_app(app_path)
         if not app_info:
             return {"success": False, "error": f"App at {app_path} is invalid or missing Info.plist"}
+
+        # Check if the app has account/login capabilities
+        has_login, reason = self.check_has_account_login(app_path)
+        if not has_login:
+            return {
+                "success": False,
+                "error": f"'{app_info['name']}' does not have an account or login system. Cloner only creates clones for apps that require multi-account management."
+            }
 
         # Sanitize profile name
         clean_profile = "".join(c for c in profile_name if c.isalnum() or c in (" ", "-", "_")).strip()

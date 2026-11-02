@@ -122,7 +122,7 @@
       card.className = "squircle-card";
       card.title = `Click to create a new profile clone of ${app.name}`;
 
-      // Icon source: local file or SVG icon representation
+      // Real app icon or fallback
       const iconUrl = app.icon_base64 ? `data:image/png;base64,${app.icon_base64}` : getAppSvgIcon(app.key);
 
       card.innerHTML = `
@@ -136,6 +136,27 @@
       card.addEventListener("click", () => openCreateModal(app));
       appsRow.appendChild(card);
     });
+
+    // Add "+ Custom App" squircle card at the end
+    const customCard = document.createElement("div");
+    customCard.className = "squircle-card add-custom";
+    customCard.title = "Choose any other macOS application from your Mac";
+    customCard.innerHTML = `
+      <div class="squircle-icon-frame add-frame">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </div>
+      <span class="squircle-label">Add App...</span>
+    `;
+    customCard.addEventListener("click", async () => {
+      const res = await postNativeMessage("pickCustomApp");
+      if (res && res.success && res.app) {
+        openCreateModal(res.app);
+      }
+    });
+    appsRow.appendChild(customCard);
   }
 
   function renderClonesGrid() {

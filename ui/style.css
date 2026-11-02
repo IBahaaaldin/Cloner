@@ -216,6 +216,18 @@ body {
   margin-top: -4px;
 }
 
+.squircle-icon-frame.add-frame {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  color: var(--text-secondary);
+}
+
+.squircle-card:hover .squircle-icon-frame.add-frame {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--accent-blue);
+  color: #FFFFFF;
+}
+
 /* Skeleton Loading Cards */
 .squircle-card.skeleton .squircle-icon-frame {
   background: #181920;

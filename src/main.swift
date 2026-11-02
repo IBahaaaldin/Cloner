@@ -28,12 +28,58 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
 
             switch action {
             case "getApps":
-                let apps = self.runEngine(args: ["scan"])
+                var apps = self.runEngine(args: ["scan"])
+                // Enrich every app with its real macOS system icon
+                for i in 0..<apps.count {
+                    if let appPath = apps[i]["path"] as? String {
+                        if let b64 = self.getAppIconBase64(appPath: appPath) {
+                            apps[i]["icon_base64"] = b64
+                        }
+                    }
+                }
                 responseData["apps"] = apps
 
             case "getClones":
-                let clones = self.runEngine(args: ["list"])
+                var clones = self.runEngine(args: ["list"])
+                // Enrich every clone with its real badged icon
+                for i in 0..<clones.count {
+                    if let clonePath = clones[i]["path"] as? String {
+                        if let b64 = self.getAppIconBase64(appPath: clonePath) {
+                            clones[i]["icon_base64"] = b64
+                        }
+                    }
+                }
                 responseData["clones"] = clones
+
+            case "pickCustomApp":
+                DispatchQueue.main.async {
+                    let panel = NSOpenPanel()
+                    panel.canChooseFiles = true
+                    panel.canChooseDirectories = false
+                    panel.allowsMultipleSelection = false
+                    panel.allowedContentTypes = [.application]
+                    panel.prompt = "Choose App"
+                    panel.directoryURL = URL(fileURLWithPath: "/Applications")
+
+                    if panel.runModal() == .OK, let selectedURL = panel.url {
+                        let path = selectedURL.path
+                        let name = selectedURL.deletingPathExtension().lastPathComponent
+                        let iconB64 = self.getAppIconBase64(appPath: path) ?? ""
+
+                        let customApp: [String: Any] = [
+                            "name": name,
+                            "path": path,
+                            "key": name.lowercased().replacingOccurrences(of: " ", with: "-"),
+                            "is_featured": false,
+                            "icon_base64": iconB64,
+                            "type": "auto"
+                        ]
+                        self.sendResponse(callbackId: callbackId, data: ["app": customApp, "success": true])
+                    } else {
+                        self.sendResponse(callbackId: callbackId, data: ["cancelled": true])
+                    }
+                }
+                return
 
             case "createClone":
                 let appPath = payload["app_path"] as? String ?? ""
@@ -98,6 +144,32 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
         }
     }
 
+    private func getAppIconBase64(appPath: String) -> String? {
+        let icon = NSWorkspace.shared.icon(forFile: appPath)
+        let targetSize = NSSize(width: 96, height: 96)
+        guard let bitmapRep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(targetSize.width),
+            pixelsHigh: Int(targetSize.height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .calibratedRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return nil }
+
+        NSGraphicsContext.saveGraphicsState()
+        let context = NSGraphicsContext(bitmapImageRep: bitmapRep)
+        NSGraphicsContext.current = context
+        icon.draw(in: NSRect(origin: .zero, size: targetSize))
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let pngData = bitmapRep.representation(using: .png, properties: [:]) else { return nil }
+        return pngData.base64EncodedString()
+    }
+
     private func runEngine(args: [String]) -> [[String: Any]] {
         let task = Process()
         task.launchPath = "/usr/bin/python3"
@@ -155,7 +227,7 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelegate {
     var window: NSWindow!
     var webView: WKWebView!
     var bridgeHandler: ClonerBridgeHandler!
@@ -203,6 +275,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         webView = WKWebView(frame: window.contentView!.bounds, configuration: config)
         webView.autoresizingMask = [.width, .height]
         webView.setValue(false, forKey: "drawsBackground") // Transparent WKWebView
+        webView.uiDelegate = self
         bridgeHandler.webView = webView
 
         window.contentView?.addSubview(webView)
@@ -212,6 +285,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "Cloner"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        completionHandler()
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "Cloner"
+        alert.informativeText = message
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Cancel")
+        let res = alert.runModal()
+        completionHandler(res == .alertFirstButtonReturn)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
