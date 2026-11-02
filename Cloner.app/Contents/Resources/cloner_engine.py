@@ -317,6 +317,14 @@ class ClonerEngine:
         app_slug = "".join(c for c in app_info['name'] if c.isalnum() or c == '-').lower()
         profile_slug = clean_profile.lower().replace(" ", "-")
         isolated_data_dir = os.path.join(self.data_root, app_slug, profile_slug)
+
+        # If not copying existing data, guarantee a pristine 100% clean directory
+        if not copy_existing_data and os.path.exists(isolated_data_dir):
+            try:
+                shutil.rmtree(isolated_data_dir, ignore_errors=True)
+            except Exception:
+                pass
+
         os.makedirs(isolated_data_dir, mode=0o700, exist_ok=True)
         try:
             os.chmod(isolated_data_dir, 0o700)
@@ -361,6 +369,13 @@ class ClonerEngine:
                 if os.path.exists(real_codex) and not os.path.exists(target_codex):
                     try:
                         shutil.copytree(real_codex, target_codex)
+                        # Remove existing auth.json so Account A credentials do not bleed into clone
+                        auth_file = os.path.join(target_codex, "auth.json")
+                        if os.path.exists(auth_file):
+                            os.remove(auth_file)
+                        auth_lock = os.path.join(target_codex, "auth.lock")
+                        if os.path.exists(auth_lock):
+                            os.remove(auth_lock)
                     except Exception:
                         pass
 
@@ -405,6 +420,18 @@ class ClonerEngine:
         with open(plist_path, "wb") as f:
             plistlib.dump(clone_plist, f)
 
+        # 1.5 Customise Owl / Codex framework configuration if present
+        owl_ini = os.path.join(resources_dir, "owl-app.ini")
+        if os.path.exists(owl_ini):
+            try:
+                with open(owl_ini, "r") as f:
+                    content = f.read()
+                content = content.replace("UserDataDirectoryName=Codex", f"UserDataDirectoryName=Codex_{clean_profile}")
+                with open(owl_ini, "w") as f:
+                    f.write(content)
+            except Exception:
+                pass
+
         # 2. Inject isolated profile wrapper in MacOS directory
         exec_name = app_info["executable_name"]
         orig_bin = os.path.join(macos_dir, exec_name)
@@ -420,7 +447,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA_DIR="{isolated_data_dir}"
 REAL_HOME="{real_home}"
 
-mkdir -p "$DATA_DIR/data" "$DATA_DIR/Library"
+mkdir -p "$DATA_DIR/data" "$DATA_DIR/Library" "$DATA_DIR/tmp"
 chmod 700 "$DATA_DIR"
 
 if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains" ]; then
@@ -428,6 +455,7 @@ if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains"
 fi
 
 export HOME="$DATA_DIR"
+export TMPDIR="$DATA_DIR/tmp"
 export CODEX_ELECTRON_USER_DATA_PATH="$DATA_DIR/data"
 export XDG_CONFIG_HOME="$DATA_DIR/.config"
 export XDG_DATA_HOME="$DATA_DIR/.local/share"

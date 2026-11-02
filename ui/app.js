@@ -333,18 +333,16 @@
   }
 
   async function deleteClone(clone) {
-    const confirmDel = confirm(`Delete "${clone.name}"?\n\nThis removes the app from ~/Desktop/Cloner.`);
+    const confirmDel = confirm(`Delete "${clone.name}" and remove all its isolated profile data?`);
     if (!confirmDel) return;
-
-    const removeData = confirm(`Do you also want to delete the isolated session data for profile "${clone.profile_name}"?`);
 
     const res = await postNativeMessage("deleteClone", {
       clone_path: clone.path,
-      remove_data: removeData
+      remove_data: true
     });
 
     if (res && res.success) {
-      showToast(`Deleted ${clone.name}`);
+      showToast(`Deleted ${clone.name} & profile data`);
       await loadClones();
     }
   }
