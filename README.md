@@ -17,11 +17,11 @@
 
 ## 🌐 Visual Previews & Post Slides
 
-| Slide 1: Editorial Cover (2160x2160) | Slide 2: In-Action App Showcase (2160x2160) |
-| :---: | :---: |
-| <img src="cover-instagram.png" width="460" alt="Instagram Cover" /> | <img src="app-showcase.png" width="460" alt="Application Showcase" /> |
+| Slide 1: Editorial Cover (2160x2160) | Slide 2: In-Action App Showcase (2160x2160) | Animated Reel Promo (1080x1920) |
+| :---: | :---: | :---: |
+| <img src="cover-instagram.png" width="280" alt="Instagram Cover" /> | <img src="app-showcase.png" width="280" alt="Application Showcase" /> | [🎬 **Watch cloner-promo.mp4**](cloner-promo.mp4) |
 
-*(High-resolution 2-slide post pack formatted for Instagram [@ibahaaaldincoding](https://www.instagram.com/ibahaaaldincoding))*
+*(High-resolution post pack + 60fps animated Reel video formatted for Instagram [@ibahaaaldincoding](https://www.instagram.com/ibahaaaldincoding))*
 
 ---
 
