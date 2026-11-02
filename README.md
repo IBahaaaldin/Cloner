@@ -6,7 +6,7 @@
 
 <div align="center">
 
-[![Download Cloner DMG](https://img.shields.io/badge/Download_DMG-v1.0.0_macOS-0066cc?style=for-the-badge&logo=apple&logoColor=white)](Cloner.dmg)
+[![Download Cloner DMG](https://img.shields.io/badge/Download_DMG-v1.0.0_macOS-0066cc?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg)
 [![macOS 14+](https://img.shields.io/badge/macOS-14.0%2B-000000?style=for-the-badge&logo=apple)](https://apple.com)
 [![Architecture: Apple Silicon](https://img.shields.io/badge/Architecture-Apple_Silicon_arm64-8B5CF6?style=for-the-badge)](https://apple.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge)](LICENSE)
@@ -29,14 +29,14 @@
 
 Anyone can download and install Cloner on their Mac in seconds:
 
-1. **[Click here to download Cloner.dmg](Cloner.dmg)** (or grab `Cloner-1.0.0.dmg`).
+1. **[Click here to download Cloner.dmg (v1.0.0)](https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg)**
 2. Double-click **`Cloner.dmg`** to open the disk image.
 3. Drag **`Cloner.app`** into your **`Applications`** folder.
 4. Launch **Cloner** from Spotlight (`Cmd + Space` → `Cloner`) or Launchpad.
 
 ```bash
 # Or install via Terminal in one line:
-hdiutil attach Cloner.dmg && cp -R /Volumes/Cloner/Cloner.app /Applications/ && hdiutil detach /Volumes/Cloner
+curl -L -O https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg && hdiutil attach Cloner.dmg && cp -R /Volumes/Cloner/Cloner.app /Applications/ && hdiutil detach /Volumes/Cloner
 ```
 
 ---
