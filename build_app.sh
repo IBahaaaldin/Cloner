@@ -54,6 +54,10 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <string>1.0.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>CFBundleGetInfoString</key>
+    <string>Cloner 1.0.0, Created by Bahaa Mohammed (@ibahaaaldincoding)</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 Bahaa Mohammed (@ibahaaaldincoding). All rights reserved.</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>

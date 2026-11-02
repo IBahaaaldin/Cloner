@@ -141,6 +141,14 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
                 let result = self.runEngineDict(args: args)
                 responseData = result
 
+            case "openUrl":
+                if let urlString = payload["url"] as? String, let url = URL(string: urlString) {
+                    DispatchQueue.main.async {
+                        NSWorkspace.shared.open(url)
+                    }
+                    responseData["success"] = true
+                }
+
             default:
                 responseData["error"] = "Unknown action \(action)"
             }
@@ -246,7 +254,7 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelegate, WKNavigationDelegate {
     var window: NSWindow!
     var webView: WKWebView!
     var bridgeHandler: ClonerBridgeHandler!
@@ -295,6 +303,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
         webView.autoresizingMask = [.width, .height]
         webView.setValue(false, forKey: "drawsBackground") // Transparent WKWebView
         webView.uiDelegate = self
+        webView.navigationDelegate = self
         bridgeHandler.webView = webView
 
         window.contentView?.addSubview(webView)
@@ -304,6 +313,38 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if let url = navigationAction.request.url, let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            NSWorkspace.shared.open(url)
+            decisionHandler(.cancel)
+            return
+        }
+        decisionHandler(.allow)
+    }
+
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = navigationAction.request.url {
+            NSWorkspace.shared.open(url)
+        }
+        return nil
+    }
+
+    @objc func showAboutPanel() {
+        let options: [NSApplication.AboutPanelOptionKey: Any] = [
+            .applicationName: "Cloner",
+            .applicationVersion: "1.0.0",
+            .version: "v1.0.0 (Apple Silicon)",
+            .credits: NSAttributedString(
+                string: "Created by Bahaa Mohammed\n• Instagram: @ibahaaaldincoding\n• GitHub: @IBahaaaldin\n• LinkedIn: Bahaa Mohammed\n• Email: bahaam.coding@gmail.com",
+                attributes: [
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .font: NSFont.systemFont(ofSize: 11)
+                ]
+            )
+        ]
+        NSApp.orderFrontStandardAboutPanel(options: options)
     }
 
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
@@ -338,7 +379,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
         appMenuItem.submenu = appMenu
 
         let appName = "Cloner"
-        appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let aboutItem = NSMenuItem(title: "About \(appName)", action: #selector(showAboutPanel), keyEquivalent: "")
+        aboutItem.target = self
+        appMenu.addItem(aboutItem)
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthers = NSMenuItem(title: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")

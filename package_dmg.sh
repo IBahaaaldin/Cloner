@@ -26,27 +26,75 @@ cp -R "$APP_PATH" "$STAGING_DIR/"
 echo "==> Creating /Applications symlink for drag-and-drop install..."
 ln -s /Applications "$STAGING_DIR/Applications"
 
-# Add README install guide inside DMG
+# Add Instant Safe Launch Command inside DMG (Bypasses Gatekeeper with 1-click)
+cat << 'EOF' > "$STAGING_DIR/Launch Cloner (First-Time Bypass).command"
+#!/bin/bash
+clear
+echo "============================================================"
+echo "          CLONER FOR MACOS — INSTANT SAFE LAUNCH            "
+echo "        Created by Bahaa Mohammed (@ibahaaaldincoding)      "
+echo "============================================================"
+echo ""
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DEST="/Applications/Cloner.app"
+
+if [ ! -d "$APP_DEST" ]; then
+    echo "==> Copying Cloner.app to /Applications..."
+    cp -R "$DIR/Cloner.app" /Applications/
+fi
+
+echo "==> Removing macOS Gatekeeper quarantine..."
+xattr -cr "$APP_DEST" 2>/dev/null || true
+
+echo "==> Launching Cloner..."
+open "$APP_DEST"
+
+echo ""
+echo "✓ Cloner is ready and running!"
+echo "You can close this Terminal window."
+exit 0
+EOF
+chmod +x "$STAGING_DIR/Launch Cloner (First-Time Bypass).command"
+
+# Add README install guide inside DMG with complete author credentials
 cat << 'EOF' > "$STAGING_DIR/Install Instructions.txt"
 ============================================================
               CLONER FOR MACOS (v1.0.0)
    Run Multiple Independent Accounts Simultaneously
 ============================================================
 
-INSTALLATION:
-1. Drag 'Cloner.app' into your 'Applications' folder.
-2. Launch Cloner from Applications or Spotlight.
-3. Select any detected AI app (ChatGPT, Claude, Antigravity)
-   to create an independent profile.
+INSTALLATION METHODS:
 
+Option A (Recommended & Instant):
+• Double-click "Launch Cloner (First-Time Bypass).command" right 
+  here in this folder! It automatically copies Cloner to /Applications,
+  clears any macOS Gatekeeper warning, and opens it instantly.
+
+Option B (Drag and Drop):
+1. Drag 'Cloner.app' into the 'Applications' shortcut.
+2. Launch Cloner from Spotlight or Launchpad.
+3. If macOS says "cannot check for malicious software":
+   Go to System Settings -> Privacy & Security -> Click "Open Anyway".
+
+Option C (Terminal 1-Liner):
+   curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh | bash
+
+------------------------------------------------------------
 FEATURES:
 • APFS Instant Cloning (<1 sec, 0 extra disk storage)
 • Completely separate sessions, cookies, logins, and chats
-• Color-coded badged dock icons
+• Color-coded badged squircle dock icons
+• Automatic Keychain linkage (Zero password reset prompts)
 • Safe macOS Trash deletion
 
-Author: Bahaa Mohammed (@ibahaaaldincoding)
-GitHub: https://github.com/IBahaaaldin
+------------------------------------------------------------
+AUTHOR & CREDENTIALS:
+• Name: Bahaa Mohammed
+• Instagram: @ibahaaaldincoding (https://www.instagram.com/ibahaaaldincoding)
+• GitHub: @IBahaaaldin (https://github.com/IBahaaaldin)
+• LinkedIn: Bahaa Mohammed (https://www.linkedin.com/in/bahaa-mohammed-371259369)
+• Email: bahaam.coding@gmail.com
 ============================================================
 EOF
 

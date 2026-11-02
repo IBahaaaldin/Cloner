@@ -37,16 +37,15 @@ curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh |
 
 ---
 
-### Option 2: Drag-and-Drop Disk Image (`.dmg`)
+### Option 2: Standalone Disk Image (`.dmg`)
 1. **[Click here to download Cloner.dmg (v1.0.0)](https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg)**
-2. Double-click **`Cloner.dmg`** and drag **`Cloner.app`** into **`Applications`**.
-3. Launch **Cloner** from Spotlight (`Cmd + Space` → `Cloner`) or Launchpad.
+2. Double-click **`Cloner.dmg`**.
+3. **Instant Launch**: Simply double-click **`Launch Cloner (First-Time Bypass).command`** inside the disk image. It automatically installs Cloner to `/Applications`, clears macOS Gatekeeper quarantine, and launches the app!
+4. Or manually drag **`Cloner.app`** into **`Applications`**.
 
 > [!TIP]
-> **First-Time Open on macOS Sequoia (15) / Sonoma (14)**:  
-> Because Cloner is open-source and free, if macOS displays *"cannot be opened because Apple cannot check it for malicious software"*:  
-> • **Quick fix**: Run `xattr -cr /Applications/Cloner.app` in Terminal  
-> • **Or in Settings**: Open `System Settings` → `Privacy & Security` → Click **Open Anyway**.
+> **Zero Gatekeeper Friction**:  
+> Double-clicking the included **`Launch Cloner (First-Time Bypass).command`** bypasses the macOS unsigned app warning automatically in 1 second. Alternatively, you can run `xattr -cr /Applications/Cloner.app` or click **Open Anyway** in `System Settings → Privacy & Security`.
 
 ---
 

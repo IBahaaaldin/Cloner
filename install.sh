@@ -3,7 +3,8 @@ set -e
 
 echo "============================================================"
 echo "          Installing Cloner for macOS (v1.0.0)             "
-echo "      by Bahaa Mohammed (@ibahaaaldincoding)              "
+echo "        Created by Bahaa Mohammed (@ibahaaaldincoding)      "
+echo "       GitHub: https://github.com/IBahaaaldin/Cloner       "
 echo "============================================================"
 
 TEMP_DMG="/tmp/Cloner.dmg"
@@ -29,7 +30,10 @@ rm -rf "$MOUNT_DIR" "$TEMP_DMG"
 
 echo "============================================================"
 echo "  ✓ Cloner successfully installed to /Applications/Cloner.app"
-echo "  ✓ Gatekeeper cleared — ready to use instantly!"
+echo "  ✓ Gatekeeper cleared — ready to use instantly with 0 errors!"
+echo "  ✓ Created by Bahaa Mohammed (@ibahaaaldincoding)"
+echo "  ✓ Instagram: https://www.instagram.com/ibahaaaldincoding"
+echo "  ✓ GitHub: https://github.com/IBahaaaldin"
 echo "============================================================"
 echo "==> Launching Cloner..."
 open /Applications/Cloner.app

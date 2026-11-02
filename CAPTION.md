@@ -21,7 +21,10 @@ I built Cloner — a native macOS utility that clones any desktop app into indep
 curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh | bash
 
 🔗 Or download the DMG on my GitHub: github.com/IBahaaaldin/Cloner
-By @ibahaaaldincoding
+
+Creator: Bahaa Mohammed (@ibahaaaldincoding)
+LinkedIn: linkedin.com/in/bahaa-mohammed-371259369
+Email: bahaam.coding@gmail.com
 
 —
 #macos #macapps #developer #softwareengineer #coding #swift #apple #chatgpt #openai #claude #anthropic #antigravity #devtools #programming #tech #cloner #uiux #indiedev #buildinpublic

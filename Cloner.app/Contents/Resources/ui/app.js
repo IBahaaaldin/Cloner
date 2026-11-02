@@ -58,6 +58,15 @@
     });
 
     btnConfirmClone.addEventListener("click", handleCreateClone);
+
+    // External link delegation to native default browser
+    document.addEventListener("click", (e) => {
+      const link = e.target.closest("a");
+      if (link && link.href && (link.href.startsWith("http://") || link.href.startsWith("https://"))) {
+        e.preventDefault();
+        postNativeMessage("openUrl", { url: link.href });
+      }
+    });
   }
 
   // Native Bridge abstraction
