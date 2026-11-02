@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cloner Reel Storyboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      width: 1080px;
+      height: 1920px;
+      background-color: #07080A;
+      color: #EDEDED;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient background lighting */
+    .ambient-glow-1 {
+      position: absolute;
+      top: -150px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 900px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.16) 0%, rgba(139, 92, 246, 0.08) 45%, transparent 70%);
+      pointer-events: none;
+      filter: blur(80px);
+    }
+
+    .ambient-glow-2 {
+      position: absolute;
+      bottom: 100px;
+      right: -100px;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+      filter: blur(90px);
+    }
+
+    /* Grid overlay */
+    .grid-pattern {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* Container */
+    .stage {
+      position: relative;
+      width: 1080px;
+      height: 1920px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 100px 70px 110px 70px;
+      z-index: 10;
+    }
+
+    /* Top Brand Bar */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 24px;
+      border-radius: 999px;
+      backdrop-filter: blur(20px);
+    }
+
+    .brand-icon-mini {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #38BDF8, #3B82F6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.6);
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+    }
+
+    .brand-tag {
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      padding: 4px 10px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60A5FA;
+      border-radius: 6px;
+    }
+
+    .author-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      color: #94A3B8;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 10px 20px;
+      border-radius: 999px;
+    }
+
+    .author-badge strong {
+      color: #F8FAFC;
+    }
+
+    /* Scene Container */
+    .scene-container {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(30px) scale(0.96);
+      transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .scene.active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    /* ========================================================
+       SCENE 1: THE FRUSTRATION (RATE LIMIT)
+       ======================================================== */
+    .alert-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #F87171;
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 12px 28px;
+      border-radius: 999px;
+      margin-bottom: 36px;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.2);
+      animation: pulseAlert 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseAlert {
+      0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.2); }
+      50% { box-shadow: 0 0 45px rgba(239, 68, 68, 0.45); }
+    }
+
+    .scene-title {
+      font-size: 64px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.04em;
+      text-align: center;
+      color: #FFFFFF;
+      max-width: 880px;
+      margin-bottom: 24px;
+    }
+
+    .scene-title span.highlight-red {
+      background: linear-gradient(135deg, #F87171, #EF4444);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .scene-subtitle {
+      font-size: 26px;
+      color: #94A3B8;
+      text-align: center;
+      line-height: 1.45;
+      max-width: 760px;
+      margin-bottom: 54px;
+    }
+
+    /* Realistic Rate Limit Dialog Card */
+    .rate-limit-card {
+      width: 780px;
+      background: #14161C;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 28px;
+      padding: 42px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(239, 68, 68, 0.08);
+      position: relative;
+    }
+
+    .rate-limit-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .rate-limit-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #EF4444;
+    }
+
+    .rate-limit-title {
+      font-size: 26px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .rate-limit-body {
+      font-size: 20px;
+      color: #94A3B8;
+      line-height: 1.5;
+      margin-bottom: 30px;
+    }
+
+    .rate-limit-body strong {
+      color: #F87171;
+    }
+
+    .rate-limit-actions {
+      display: flex;
+      gap: 16px;
+    }
+
+    .btn-mock-disabled {
+      flex: 1;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      color: #64748B;
+      font-weight: 600;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    .btn-mock-upgrade {
+      flex: 1;
+      padding: 18px;
+      background: #3B82F6;
+      border: none;
+      border-radius: 14px;
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 18px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
+    }
+
+    /* ========================================================
+       SCENE 2: INTRODUCING CLONER (HERO)
+       ======================================================== */
+    .hero-icon-wrapper {
+      position: relative;
+      margin-bottom: 40px;
+    }
+
+    .hero-icon-glow {
+      position: absolute;
+      inset: -30px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.45) 0%, rgba(139, 92, 246, 0.25) 50%, transparent 70%);
+      filter: blur(40px);
+      border-radius: 60px;
+    }
+
+    .hero-app-icon {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      border-radius: 42px;
+      background: linear-gradient(145deg, #1E202B 0%, #101117 100%);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+    }
+
+    .hero-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #60A5FA;
+      font-size: 17px;
+      font-weight: 700;
+      padding: 10px 24px;
+      border-radius: 999px;
+      margin-bottom: 24px;
+    }
+
+    .hero-title {
+      font-size: 68px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      text-align: center;
+      color: #FFFFFF;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+
+    .hero-title span.gradient-text {
+      background: linear-gradient(135deg, #60A5FA, #A855F7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Detected App Badges Row */
+    .app-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      width: 780px;
+      margin-top: 40px;
+    }
+
+    .app-card-item {
+      background: #12141A;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .app-card-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    .app-card-info h4 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+    }
+
+    .app-card-info span {
+      font-size: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #10B981;
+    }
+
+    /* ========================================================
+       SCENE 3: IN ACTION (CREATING THE CLONE)
+       ======================================================== */
+    .mac-window-mock {
+      width: 820px;
+      background: #111216;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8), 0 0 60px rgba(59, 130, 246, 0.1);
+      overflow: hidden;
+    }
+
+    .window-header {
+      background: #16181F;
+      padding: 16px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .traffic-light {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+    }
+    .traffic-red { background: #EF4444; }
+    .traffic-yellow { background: #F59E0B; }
+    .traffic-green { background: #10B981; }
+
+    .window-title {
+      margin-left: auto;
+      margin-right: auto;
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748B;
+    }
+
+    .window-content {
+      padding: 40px;
+    }
+
+    .modal-create-mock {
+      background: #171922;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 32px;
+    }
+
+    .modal-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .modal-label {
+      font-size: 17px;
+      font-weight: 600;
+      color: #94A3B8;
+    }
+
+    .modal-input {
+      background: #0B0C0E;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: 18px;
+      color: #FFFFFF;
+      font-weight: 600;
+      width: 320px;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 12px;
+    }
+
+    .swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+    }
+    .swatch.active {
+      border-color: #FFFFFF;
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+    }
+
+    .feature-tag-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 40px;
+      width: 820px;
+    }
+
+    .feature-pill-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 18px 26px;
+      border-radius: 16px;
+      font-size: 20px;
+      font-weight: 600;
+      color: #E2E8F0;
+    }
+
+    .feature-pill-item svg {
+      color: #10B981;
+      flex-shrink: 0;
+    }
+
+    /* ========================================================
+       SCENE 4: DUAL WORKSPACE & INSTALL
+       ======================================================== */
+    .dual-screen-mock {
+      display: flex;
+      gap: 20px;
+      width: 860px;
+      margin-bottom: 40px;
+    }
+
+    .screen-card {
+      flex: 1;
+      background: #14161E;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+
+    .screen-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 8px;
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+
+    .screen-tag.blue { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .screen-tag.emerald { background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    .chat-bubble {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 15px;
+      color: #94A3B8;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+
+    .chat-bubble.active-bubble {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #F8FAFC;
+    }
+
+    /* 1-Line Install Box */
+    .install-box {
+      width: 860px;
+      background: #0D0E12;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 40px rgba(59, 130, 246, 0.15);
+      margin-bottom: 30px;
+    }
+
+    .install-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .install-title {
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #60A5FA;
+    }
+
+    .terminal-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 17px;
+      background: #13151D;
+      padding: 18px 24px;
+      border-radius: 12px;
+      color: #38BDF8;
+      word-break: break-all;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cursor-blink {
+      display: inline-block;
+      width: 10px;
+      height: 20px;
+      background: #38BDF8;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    /* Bottom Bar */
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 36px;
+    }
+
+    .github-link {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 17px;
+      color: #94A3B8;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .github-link strong {
+      color: #FFFFFF;
+    }
+
+    .cta-save-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #2563EB, #1D4ED8);
+      color: #FFFFFF;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 14px 28px;
+      border-radius: 999px;
+      box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient-glow-1"></div>
+  <div class="ambient-glow-2"></div>
+  <div class="grid-pattern"></div>
+
+  <div class="stage">
+    <!-- Top Persistent Bar -->
+    <div class="top-bar">
+      <div class="brand-pill">
+        <div class="brand-icon-mini">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </div>
+        <span class="brand-name">Cloner</span>
+        <span class="brand-tag">v1.0.0</span>
+      </div>
+
+      <div class="author-badge">
+        <span>by</span>
+        <strong>Bahaa Mohammed</strong>
+        <span>•</span>
+        <span style="color: #60A5FA;">@ibahaaaldincoding</span>
+      </div>
+    </div>
+
+    <!-- Main Dynamic Scene Switcher -->
+    <div class="scene-container">
+      <!-- SCENE 1: THE PROBLEM -->
+      <div class="scene" id="scene1">
+        <div class="alert-pill">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          RATE LIMIT REACHED
+        </div>
+
+        <h1 class="scene-title">
+          Out of <span class="highlight-red">ChatGPT & Claude</span> usage right in the middle of work?
+        </h1>
+
+        <p class="scene-subtitle">
+          Don't wait 3 hours for your quota to reset. Run your personal and work accounts simultaneously on macOS.
+        </p>
+
+        <div class="rate-limit-card">
+          <div class="rate-limit-header">
+            <div class="rate-limit-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <div class="rate-limit-title">You're out of Codex and Work usage</div>
+          </div>
+          <div class="rate-limit-body">
+            Your rate limit resets at <strong>3:16 PM</strong>. Upgrade your plan or add credits to continue coding.
+          </div>
+          <div class="rate-limit-actions">
+            <div class="btn-mock-disabled">Wait for Reset</div>
+            <div class="btn-mock-upgrade">Upgrade Account</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCENE 2: INTRODUCING CLONER -->
+      <div class="scene" id="scene2">
+        <div class="hero-icon-wrapper">
+          <div class="hero-icon-glow"></div>
+          <div class="hero-app-icon">
+            <svg width="90" height="90" viewBox="0 0 24 24" fill="none" stroke="url(#heroGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <defs>
+                <linearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#38BDF8"></stop>
+                  <stop offset="100%" stop-color="#818CF8"></stop>
+                </linearGradient>
+              </defs>
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </div>
+        </div>
+
+        <div class="hero-badge-pill">
+          ⚡ 100% Free & Open Source
+        </div>
+
+        <h1 class="hero-title">
+          Meet <span class="gradient-text">Cloner</span> for macOS
+        </h1>
+
+        <p class="scene-subtitle" style="margin-bottom: 24px;">
+          Instantly clone any AI desktop app into independent side-by-side instances with separate profiles and logins.
+        </p>
+
+        <div class="app-cards-grid">
+          <div class="app-card-item">
+            <div class="app-card-icon" style="background: rgba(16, 185, 129, 0.15); color: #10B981;">💬</div>
+            <div class="app-card-info">
+              <h4>ChatGPT</h4>
+              <span>DETECTED & READY</span>
+            </div>
+          </div>
+
+          <div class="app-card-item">
+            <div class="app-card-icon" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B;">✳️</div>
+            <div class="app-card-info">
+              <h4>Claude</h4>
+              <span>DETECTED & READY</span>
+            </div>
+          </div>
+
+          <div class="app-card-item">
+            <div class="app-card-icon" style="background: rgba(139, 92, 246, 0.15); color: #8B5CF6;">🔺</div>
+            <div class="app-card-info">
+              <h4>Antigravity</h4>
+              <span>DETECTED & READY</span>
+            </div>
+          </div>
+
+          <div class="app-card-item">
+            <div class="app-card-icon" style="background: rgba(59, 130, 246, 0.15); color: #3B82F6;">✨</div>
+            <div class="app-card-info">
+              <h4>Gemini</h4>
+              <span>DETECTED & READY</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCENE 3: IN ACTION -->
+      <div class="scene" id="scene3">
+        <div class="mac-window-mock">
+          <div class="window-header">
+            <div class="traffic-light traffic-red"></div>
+            <div class="traffic-light traffic-yellow"></div>
+            <div class="traffic-light traffic-green"></div>
+            <div class="window-title">Cloner — Create Profile Clone</div>
+          </div>
+          <div class="window-content">
+            <div class="modal-create-mock">
+              <div class="modal-row">
+                <span class="modal-label">App Target:</span>
+                <span style="font-size: 20px; font-weight: 700; color: #10B981;">ChatGPT.app</span>
+              </div>
+              <div class="modal-row">
+                <span class="modal-label">Profile Name:</span>
+                <input class="modal-input" value="Work Account" readonly>
+              </div>
+              <div class="modal-row" style="margin-bottom: 0;">
+                <span class="modal-label">Dock Badge Accent:</span>
+                <div class="color-swatches">
+                  <div class="swatch active" style="background: #3B82F6;"></div>
+                  <div class="swatch" style="background: #10B981;"></div>
+                  <div class="swatch" style="background: #8B5CF6;"></div>
+                  <div class="swatch" style="background: #F59E0B;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-tag-list">
+          <div class="feature-pill-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span><strong>⚡ Instant APFS Cloning</strong> (< 1 sec, 0 extra disk storage)</span>
+          </div>
+          <div class="feature-pill-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span><strong>👥 100% Isolated Sessions</strong> (Independent cookies, logins & chats)</span>
+          </div>
+          <div class="feature-pill-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span><strong>🛡️ Zero Keychain Popups</strong> (Preserves macOS login keychain)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCENE 4: DUAL WORKSPACE & GET IT -->
+      <div class="scene" id="scene4">
+        <div class="dual-screen-mock">
+          <div class="screen-card">
+            <span class="screen-tag blue">Account 1: Personal</span>
+            <div class="chat-bubble">
+              "Building Expo mobile client..."
+            </div>
+            <div class="chat-bubble active-bubble" style="font-size: 13px; color: #F87171;">
+              ⚠️ Rate limit reached (Resets 3:16 PM)
+            </div>
+          </div>
+
+          <div class="screen-card" style="border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 35px rgba(16, 185, 129, 0.15);">
+            <span class="screen-tag emerald">Account 2: Work (Clone)</span>
+            <div class="chat-bubble">
+              "Switching to secondary account..."
+            </div>
+            <div class="chat-bubble active-bubble" style="font-size: 13px; color: #34D399; border-color: rgba(16, 185, 129, 0.4);">
+              ✓ Fresh quota active • Full speed
+            </div>
+          </div>
+        </div>
+
+        <div class="install-box">
+          <div class="install-header">
+            <span class="install-title">1-Line Terminal Auto-Install (Zero Gatekeeper)</span>
+          </div>
+          <div class="terminal-code">
+            <span>curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh | bash</span>
+            <div class="cursor-blink"></div>
+          </div>
+        </div>
+
+        <div class="hero-badge-pill" style="font-size: 19px; padding: 12px 30px; margin-bottom: 0;">
+          ⬇️ Or download Cloner.dmg from GitHub Releases
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Persistent Footer -->
+    <div class="bottom-bar">
+      <div class="github-link">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        <span>github.com/<strong>IBahaaaldin</strong>/<strong>Cloner</strong></span>
+      </div>
+
+      <div class="cta-save-badge">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+        <span>SAVE THIS REEL</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Automated Scene Director
+    const scenes = [
+      document.getElementById('scene1'),
+      document.getElementById('scene2'),
+      document.getElementById('scene3'),
+      document.getElementById('scene4')
+    ];
+
+    function showScene(idx) {
+      scenes.forEach((s, i) => {
+        if (i === idx) {
+          s.classList.add('active');
+        } else {
+          s.classList.remove('active');
+        }
+      });
+    }
+
+    // Default start
+    showScene(0);
+
+    // Timeline control exposed for recording
+    window.setPlaybackTime = function(seconds) {
+      if (seconds < 3.2) {
+        showScene(0);
+      } else if (seconds < 6.8) {
+        showScene(1);
+      } else if (seconds < 10.6) {
+        showScene(2);
+      } else {
+        showScene(3);
+      }
+    };
+  </script>
+</body>
+</html>
