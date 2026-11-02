@@ -323,69 +323,113 @@ class ClonerEngine:
         except Exception:
             pass
 
-        # Scaffolding clone bundle
+        # Remove existing clone if any
+        if os.path.exists(clone_app_path):
+            shutil.rmtree(clone_app_path)
+
+        # APFS instant clone of the entire app bundle (0 extra disk space on APFS)
+        subprocess.run(["cp", "-cR", app_path, clone_app_path], check=True)
+
         contents_dir = os.path.join(clone_app_path, "Contents")
         macos_dir = os.path.join(contents_dir, "MacOS")
         resources_dir = os.path.join(contents_dir, "Resources")
 
-        if os.path.exists(clone_app_path):
-            shutil.rmtree(clone_app_path)
+        # 1. Configure Info.plist with unique bundle ID and display name
+        plist_path = os.path.join(contents_dir, "Info.plist")
+        with open(plist_path, "rb") as f:
+            clone_plist = plistlib.load(f)
 
-        os.makedirs(macos_dir, exist_ok=True)
-        os.makedirs(resources_dir, exist_ok=True)
+        unique_bundle_id = f"com.cloner.{app_slug}.{profile_slug}"
+        clone_plist["CFBundleIdentifier"] = unique_bundle_id
+        # Preserve CFBundleName so Electron can locate its Helper.app bundles in Frameworks
+        orig_bundle_name = clone_plist.get("CFBundleName", app_info["name"])
+        clone_plist["CFBundleName"] = orig_bundle_name
+        clone_plist["CFBundleDisplayName"] = clone_name
+        clone_plist["ClonerProfileName"] = clean_profile
+        clone_plist["ClonerBaseAppName"] = app_info["name"]
+        clone_plist["ClonerBaseAppPath"] = app_path
+        clone_plist["ClonerDataDir"] = isolated_data_dir
+        clone_plist["ClonerBadgeColor"] = badge_color
+        clone_plist["ClonerAppType"] = app_info["type"]
 
-        # 1. Create badged icon
-        out_icns = os.path.join(resources_dir, "AppIcon.icns")
+        with open(plist_path, "wb") as f:
+            plistlib.dump(clone_plist, f)
+
+        # 2. Inject isolated profile wrapper in MacOS directory
+        exec_name = app_info["executable_name"]
+        orig_bin = os.path.join(macos_dir, exec_name)
+        renamed_bin = os.path.join(macos_dir, f"{exec_name}_orig")
+
+        if not os.path.exists(renamed_bin) and os.path.exists(orig_bin):
+            os.rename(orig_bin, renamed_bin)
+
+        # Tailor launcher script with absolute profile isolation
+        # Exporting HOME="$DATA_DIR" guarantees that:
+        # 1. os.homedir() and ~/.<app> paths point to the isolated profile
+        # 2. Chromium / Electron ProcessSingleton locks are acquired independently
+        # 3. macOS app data, caches, tokens, and cookies remain 100% separate
+        app_key = app_info["name"].lower()
+        if "chatgpt" in app_key:
+            launcher_script = f"""#!/bin/bash
+DIR="$(cd "$(dirname "$0")" && pwd)"
+DATA_DIR="{isolated_data_dir}"
+
+mkdir -p "$DATA_DIR/data"
+chmod 700 "$DATA_DIR"
+
+export HOME="$DATA_DIR"
+export CODEX_ELECTRON_USER_DATA_PATH="$DATA_DIR/data"
+export XDG_CONFIG_HOME="$DATA_DIR/.config"
+export XDG_DATA_HOME="$DATA_DIR/.local/share"
+export XDG_CACHE_HOME="$DATA_DIR/.cache"
+
+exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
+"""
+        elif "antigravity ide" in app_key or "code" in app_key:
+            launcher_script = f"""#!/bin/bash
+DIR="$(cd "$(dirname "$0")" && pwd)"
+DATA_DIR="{isolated_data_dir}"
+
+mkdir -p "$DATA_DIR/data" "$DATA_DIR/extensions"
+chmod 700 "$DATA_DIR"
+
+export HOME="$DATA_DIR"
+export XDG_CONFIG_HOME="$DATA_DIR/.config"
+export XDG_DATA_HOME="$DATA_DIR/.local/share"
+export XDG_CACHE_HOME="$DATA_DIR/.cache"
+
+exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" --extensions-dir="$DATA_DIR/extensions" "$@"
+"""
+        else:
+            launcher_script = f"""#!/bin/bash
+DIR="$(cd "$(dirname "$0")" && pwd)"
+DATA_DIR="{isolated_data_dir}"
+
+mkdir -p "$DATA_DIR/data"
+chmod 700 "$DATA_DIR"
+
+export HOME="$DATA_DIR"
+export XDG_CONFIG_HOME="$DATA_DIR/.config"
+export XDG_DATA_HOME="$DATA_DIR/.local/share"
+export XDG_CACHE_HOME="$DATA_DIR/.cache"
+
+exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
+"""
+
+        with open(orig_bin, "w") as f:
+            f.write(launcher_script)
+        os.chmod(orig_bin, 0o755)
+
+        # 3. Create badged icon
+        icon_file = clone_plist.get("CFBundleIconFile", "AppIcon")
+        if not icon_file.endswith(".icns"):
+            icon_file += ".icns"
+        out_icns = os.path.join(resources_dir, icon_file)
         initials = clean_profile[:2]
         if app_info["icon_path"] and os.path.exists(app_info["icon_path"]):
             self.create_badged_icon(app_info["icon_path"], out_icns, badge_color, initials)
 
-        # 2. Configure Info.plist
-        unique_bundle_id = f"com.cloner.{app_slug}.{profile_slug}"
-        clone_plist = {
-            "CFBundleDevelopmentRegion": "en",
-            "CFBundleDisplayName": clone_name,
-            "CFBundleExecutable": "launcher",
-            "CFBundleIconFile": "AppIcon",
-            "CFBundleIdentifier": unique_bundle_id,
-            "CFBundleInfoDictionaryVersion": "6.0",
-            "CFBundleName": clone_name,
-            "CFBundlePackageType": "APPL",
-            "CFBundleShortVersionString": "1.0",
-            "CFBundleVersion": "1",
-            "LSMinimumSystemVersion": "14.0",
-            "NSHighResolutionCapable": True,
-            "ClonerBaseAppPath": app_path,
-            "ClonerProfileName": clean_profile,
-            "ClonerBaseAppName": app_info["name"],
-            "ClonerDataDir": isolated_data_dir,
-            "ClonerBadgeColor": badge_color,
-            "ClonerAppType": app_info["type"]
-        }
-
-        with open(os.path.join(contents_dir, "Info.plist"), "wb") as f:
-            plistlib.dump(clone_plist, f)
-
-        # 3. Create launcher script
-        launcher_path = os.path.join(macos_dir, "launcher")
-        original_exec = os.path.join(app_path, "Contents", "MacOS", app_info["executable_name"])
-
-        # Launcher script supporting Chromium/CEF/Electron isolated user-data-dir
-        launcher_script = f"""#!/bin/bash
-# Cloner Launcher for: {app_info['name']} ({clean_profile})
-DATA_DIR="{isolated_data_dir}"
-ORIGINAL_EXEC="{original_exec}"
-
-mkdir -p "$DATA_DIR"
-chmod 700 "$DATA_DIR"
-exec "$ORIGINAL_EXEC" --user-data-dir="$DATA_DIR" "$@"
-"""
-
-        with open(launcher_path, "w") as f:
-            f.write(launcher_script)
-        os.chmod(launcher_path, 0o755)
-
-        # 4. Ad-hoc codesign
+        # 4. Ad-hoc codesign the full cloned bundle
         try:
             subprocess.run(["codesign", "--force", "--deep", "--sign", "-", clone_app_path],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -396,11 +440,6 @@ exec "$ORIGINAL_EXEC" --user-data-dir="$DATA_DIR" "$@"
         lsreg = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
         if os.path.exists(lsreg):
             subprocess.run([lsreg, "-f", clone_app_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
-            try:
-                subprocess.run(["touch", clone_app_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except Exception:
-                pass
 
         return {
             "success": True,

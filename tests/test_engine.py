@@ -40,7 +40,7 @@ class TestClonerEngine(unittest.TestCase):
         clone_app_path = result['clone_path']
         self.assertTrue(os.path.exists(clone_app_path))
         self.assertTrue(os.path.exists(os.path.join(clone_app_path, "Contents", "Info.plist")))
-        self.assertTrue(os.path.exists(os.path.join(clone_app_path, "Contents", "MacOS", "launcher")))
+        self.assertTrue(os.path.exists(os.path.join(clone_app_path, "Contents", "MacOS", target_app['executable_name'])))
 
         # Check listing
         clones = self.engine.list_active_clones()

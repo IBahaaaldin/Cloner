@@ -1,0 +1,6 @@
+.DS_Store
+*.app
+!Cloner.app
+/tmp
+__pycache__/
+*.pyc

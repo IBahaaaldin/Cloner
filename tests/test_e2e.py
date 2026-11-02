@@ -49,7 +49,7 @@ class TestClonerE2E(unittest.TestCase):
         self.assertEqual(oct(data_stat.st_mode)[-3:], "700", f"Insecure permissions: {oct(data_stat.st_mode)}")
 
         # Check launcher script
-        launcher_path = os.path.join(ag_clone_path, "Contents", "MacOS", "launcher")
+        launcher_path = os.path.join(ag_clone_path, "Contents", "MacOS", target_ag['executable_name'])
         self.assertTrue(os.path.exists(launcher_path))
         with open(launcher_path, "r") as f:
             launcher_content = f.read()
