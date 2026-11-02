@@ -249,6 +249,8 @@
     selectedApp = app;
     modalTitle.textContent = `Clone ${app.name}`;
     profileNameInput.value = "";
+    const copyChatsCheckbox = document.getElementById("copyChatsCheckbox");
+    if (copyChatsCheckbox) copyChatsCheckbox.checked = false;
     previewBaseIcon.src = app.icon_base64 ? `data:image/png;base64,${app.icon_base64}` : getAppSvgIcon(app.key);
     updateLivePreview();
     modalBackdrop.classList.add("active");
@@ -282,10 +284,14 @@
     btnConfirmClone.disabled = true;
 
     try {
+      const copyChatsCheckbox = document.getElementById("copyChatsCheckbox");
+      const copyData = copyChatsCheckbox ? copyChatsCheckbox.checked : false;
+
       const res = await postNativeMessage("createClone", {
         app_path: selectedApp.path,
         profile_name: profileName,
-        badge_color: selectedColor
+        badge_color: selectedColor,
+        copy_existing_data: copyData
       });
 
       if (res && res.success) {

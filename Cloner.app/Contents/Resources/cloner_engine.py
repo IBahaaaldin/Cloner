@@ -291,7 +291,7 @@ class ClonerEngine:
             # If PIL is not installed, we can draw a raw badge or leave clean
             pass
 
-    def create_app_clone(self, app_path: str, profile_name: str, badge_color: str = "#3B82F6") -> Dict[str, Any]:
+    def create_app_clone(self, app_path: str, profile_name: str, badge_color: str = "#3B82F6", copy_existing_data: bool = False) -> Dict[str, Any]:
         """Creates an independent clone application bundle."""
         app_info = self._inspect_app(app_path)
         if not app_info:
@@ -322,6 +322,56 @@ class ClonerEngine:
             os.chmod(isolated_data_dir, 0o700)
         except Exception:
             pass
+
+        # Link real user Keychains into the isolated profile
+        # This prevents macOS Security framework from thinking the login keychain was lost or corrupted
+        lib_dir = os.path.join(isolated_data_dir, "Library")
+        os.makedirs(lib_dir, exist_ok=True)
+        kc_target = os.path.join(lib_dir, "Keychains")
+        real_kc = os.path.expanduser("~/Library/Keychains")
+        if os.path.exists(real_kc) and not os.path.exists(kc_target):
+            try:
+                os.symlink(real_kc, kc_target)
+            except Exception:
+                pass
+
+        # Optional: Copy existing chat history and local workspace data
+        app_key = app_info["name"].lower()
+        if copy_existing_data:
+            if "antigravity" in app_key:
+                real_ag_dir = os.path.expanduser("~/.gemini/antigravity")
+                target_ag_dir = os.path.join(isolated_data_dir, ".gemini", "antigravity")
+                if os.path.exists(real_ag_dir) and not os.path.exists(target_ag_dir):
+                    try:
+                        os.makedirs(os.path.dirname(target_ag_dir), exist_ok=True)
+                        shutil.copytree(real_ag_dir, target_ag_dir, ignore=shutil.ignore_patterns("crashes", "Singleton*"))
+                    except Exception:
+                        pass
+                real_config = os.path.expanduser("~/.gemini/config")
+                target_config = os.path.join(isolated_data_dir, ".gemini", "config")
+                if os.path.exists(real_config) and not os.path.exists(target_config):
+                    try:
+                        shutil.copytree(real_config, target_config)
+                    except Exception:
+                        pass
+
+            if "chatgpt" in app_key or "codex" in app_key:
+                real_codex = os.path.expanduser("~/.codex")
+                target_codex = os.path.join(isolated_data_dir, ".codex")
+                if os.path.exists(real_codex) and not os.path.exists(target_codex):
+                    try:
+                        shutil.copytree(real_codex, target_codex)
+                    except Exception:
+                        pass
+
+            if "claude" in app_key:
+                real_claude = os.path.expanduser("~/.claude")
+                target_claude = os.path.join(isolated_data_dir, ".claude")
+                if os.path.exists(real_claude) and not os.path.exists(target_claude):
+                    try:
+                        shutil.copytree(real_claude, target_claude)
+                    except Exception:
+                        pass
 
         # Remove existing clone if any
         if os.path.exists(clone_app_path):
@@ -363,19 +413,19 @@ class ClonerEngine:
         if not os.path.exists(renamed_bin) and os.path.exists(orig_bin):
             os.rename(orig_bin, renamed_bin)
 
-        # Tailor launcher script with absolute profile isolation
-        # Exporting HOME="$DATA_DIR" guarantees that:
-        # 1. os.homedir() and ~/.<app> paths point to the isolated profile
-        # 2. Chromium / Electron ProcessSingleton locks are acquired independently
-        # 3. macOS app data, caches, tokens, and cookies remain 100% separate
-        app_key = app_info["name"].lower()
+        real_home = os.path.expanduser("~")
         if "chatgpt" in app_key:
             launcher_script = f"""#!/bin/bash
 DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA_DIR="{isolated_data_dir}"
+REAL_HOME="{real_home}"
 
-mkdir -p "$DATA_DIR/data"
+mkdir -p "$DATA_DIR/data" "$DATA_DIR/Library"
 chmod 700 "$DATA_DIR"
+
+if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains" ]; then
+    ln -s "$REAL_HOME/Library/Keychains" "$DATA_DIR/Library/Keychains" 2>/dev/null || true
+fi
 
 export HOME="$DATA_DIR"
 export CODEX_ELECTRON_USER_DATA_PATH="$DATA_DIR/data"
@@ -389,9 +439,14 @@ exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
             launcher_script = f"""#!/bin/bash
 DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA_DIR="{isolated_data_dir}"
+REAL_HOME="{real_home}"
 
-mkdir -p "$DATA_DIR/data" "$DATA_DIR/extensions"
+mkdir -p "$DATA_DIR/data" "$DATA_DIR/extensions" "$DATA_DIR/Library"
 chmod 700 "$DATA_DIR"
+
+if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains" ]; then
+    ln -s "$REAL_HOME/Library/Keychains" "$DATA_DIR/Library/Keychains" 2>/dev/null || true
+fi
 
 export HOME="$DATA_DIR"
 export XDG_CONFIG_HOME="$DATA_DIR/.config"
@@ -404,9 +459,14 @@ exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" --extensions-dir="
             launcher_script = f"""#!/bin/bash
 DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA_DIR="{isolated_data_dir}"
+REAL_HOME="{real_home}"
 
-mkdir -p "$DATA_DIR/data"
+mkdir -p "$DATA_DIR/data" "$DATA_DIR/Library"
 chmod 700 "$DATA_DIR"
+
+if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains" ]; then
+    ln -s "$REAL_HOME/Library/Keychains" "$DATA_DIR/Library/Keychains" 2>/dev/null || true
+fi
 
 export HOME="$DATA_DIR"
 export XDG_CONFIG_HOME="$DATA_DIR/.config"
@@ -584,6 +644,7 @@ if __name__ == "__main__":
     parser.add_argument("--app-path", help="Path to base app")
     parser.add_argument("--profile", help="Profile name")
     parser.add_argument("--color", default="#3B82F6", help="Badge hex color")
+    parser.add_argument("--copy-existing-data", action="store_true", help="Copy existing chats and workspace state")
     parser.add_argument("--clone-path", help="Path to clone app bundle")
     parser.add_argument("--remove-data", action="store_true", help="Delete isolated data directory")
     parser.add_argument("--data-dir", help="Data directory path")
@@ -595,7 +656,7 @@ if __name__ == "__main__":
         apps = engine.scan_installed_apps()
         print(json.dumps(apps, indent=2))
     elif args.command == "create":
-        res = engine.create_app_clone(args.app_path, args.profile, args.color)
+        res = engine.create_app_clone(args.app_path, args.profile, args.color, copy_existing_data=args.copy_existing_data)
         print(json.dumps(res, indent=2))
     elif args.command == "list":
         clones = engine.list_active_clones()

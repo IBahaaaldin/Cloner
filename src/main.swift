@@ -85,12 +85,17 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
                 let appPath = payload["app_path"] as? String ?? ""
                 let profileName = payload["profile_name"] as? String ?? "Work"
                 let badgeColor = payload["badge_color"] as? String ?? "#3B82F6"
-                let result = self.runEngineDict(args: [
+                let copyData = payload["copy_existing_data"] as? Bool ?? false
+                var args = [
                     "create",
                     "--app-path", appPath,
                     "--profile", profileName,
                     "--color", badgeColor
-                ])
+                ]
+                if copyData {
+                    args.append("--copy-existing-data")
+                }
+                let result = self.runEngineDict(args: args)
                 responseData = result
 
             case "launchClone":
