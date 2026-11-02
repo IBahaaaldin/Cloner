@@ -17,7 +17,11 @@ I built Cloner — a native macOS utility that clones any desktop app into indep
 👇 Which AI apps do you use the most with multiple accounts? Let me know in the comments!
 
 💾 Save this post for later!
-🔗 Download the 1-Click DMG installer on my GitHub: github.com/IBahaaaldin/Cloner
+⚡ 1-Line Terminal Install:
+curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh | bash
+
+🔗 Or download the DMG on my GitHub: github.com/IBahaaaldin/Cloner
+By @ibahaaaldincoding
 
 —
 #macos #macapps #developer #softwareengineer #coding #swift #apple #chatgpt #openai #claude #anthropic #antigravity #devtools #programming #tech #cloner #uiux #indiedev #buildinpublic

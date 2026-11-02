@@ -25,19 +25,28 @@
 
 ---
 
-## ⚡ 1-Click Direct Installation
+## ⚡ Quick 1-Click Install (Zero Hassle)
 
-Anyone can download and install Cloner on their Mac in seconds:
+Choose either of the two painless ways to install:
 
-1. **[Click here to download Cloner.dmg (v1.0.0)](https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg)**
-2. Double-click **`Cloner.dmg`** to open the disk image.
-3. Drag **`Cloner.app`** into your **`Applications`** folder.
-4. Launch **Cloner** from Spotlight (`Cmd + Space` → `Cloner`) or Launchpad.
-
+### Option 1: 1-Line Terminal Auto-Installer (Recommended)
+Automatically downloads, installs to `/Applications`, clears macOS Gatekeeper quarantine, and launches Cloner:
 ```bash
-# Or install via Terminal in one line:
-curl -L -O https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg && hdiutil attach Cloner.dmg && cp -R /Volumes/Cloner/Cloner.app /Applications/ && hdiutil detach /Volumes/Cloner
+curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh | bash
 ```
+
+---
+
+### Option 2: Drag-and-Drop Disk Image (`.dmg`)
+1. **[Click here to download Cloner.dmg (v1.0.0)](https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg)**
+2. Double-click **`Cloner.dmg`** and drag **`Cloner.app`** into **`Applications`**.
+3. Launch **Cloner** from Spotlight (`Cmd + Space` → `Cloner`) or Launchpad.
+
+> [!TIP]
+> **First-Time Open on macOS Sequoia (15) / Sonoma (14)**:  
+> Because Cloner is open-source and free, if macOS displays *"cannot be opened because Apple cannot check it for malicious software"*:  
+> • **Quick fix**: Run `xattr -cr /Applications/Cloner.app` in Terminal  
+> • **Or in Settings**: Open `System Settings` → `Privacy & Security` → Click **Open Anyway**.
 
 ---
 

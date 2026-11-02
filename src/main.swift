@@ -175,9 +175,23 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
         return pngData.base64EncodedString()
     }
 
+    private func getPythonPath() -> String {
+        let candidates = [
+            "/usr/bin/python3",
+            "/opt/homebrew/bin/python3",
+            "/usr/local/bin/python3"
+        ]
+        for path in candidates {
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+        }
+        return "/usr/bin/python3"
+    }
+
     private func runEngine(args: [String]) -> [[String: Any]] {
         let task = Process()
-        task.launchPath = "/usr/bin/python3"
+        task.launchPath = self.getPythonPath()
         task.arguments = [self.enginePath] + args
 
         let pipe = Pipe()
@@ -199,7 +213,7 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
 
     private func runEngineDict(args: [String]) -> [String: Any] {
         let task = Process()
-        task.launchPath = "/usr/bin/python3"
+        task.launchPath = self.getPythonPath()
         task.arguments = [self.enginePath] + args
 
         let pipe = Pipe()

@@ -790,3 +790,41 @@ body {
 
 .btn-primary.loading .btn-text { display: none; }
 .btn-primary.loading .spinner { display: inline-block; }
+
+/* App Footer */
+.app-footer {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.footer-left {
+  font-family: 'JetBrains Mono', monospace;
+  opacity: 0.7;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-right strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.footer-dot {
+  opacity: 0.3;
+}
+
+.footer-handle {
+  color: var(--accent-blue);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+}
