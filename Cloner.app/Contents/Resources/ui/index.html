@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Drag bar for macOS native look -->
+  <div class="window-drag-region">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="14" height="14" rx="3"></rect>
+          <path d="M16 3H7a3 3 0 0 0-3 3v1"></path>
+          <path d="M22 11v-4a3 3 0 0 0-3-3h-4"></path>
+          <circle cx="9" cy="14" r="2"></circle>
+        </svg>
+      </div>
+      <span class="brand-name">Cloner</span>
+      <span class="brand-tag">Multi-Account</span>
+    </div>
+    <div class="window-stats">
+      <span id="detectedCount">Detecting apps...</span>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- Header Hero -->
+    <header class="hero-section">
+      <h1 class="hero-title">Run multiple accounts simultaneously.</h1>
+      <p class="hero-desc">Clone your AI desktop apps into independent, side-by-side instances with separate profiles and logins.</p>
+    </header>
+
+    <!-- Apps Gallery (Inspired by user's screenshot) -->
+    <section class="gallery-section">
+      <div class="section-header">
+        <span class="section-title">CHOOSE AN APP TO CLONE</span>
+        <button class="btn-ghost" id="btnRefreshApps" title="Refresh Apps">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      <div class="squircle-row" id="appsRow">
+        <!-- Rendered dynamically -->
+        <div class="squircle-card skeleton"></div>
+        <div class="squircle-card skeleton"></div>
+        <div class="squircle-card skeleton"></div>
+        <div class="squircle-card skeleton"></div>
+      </div>
+    </section>
+
+    <!-- Active Clones Section -->
+    <section class="clones-section">
+      <div class="section-header">
+        <span class="section-title">ACTIVE CLONES ON DESKTOP</span>
+        <span class="clones-count" id="clonesCountBadge">0 Clones</span>
+      </div>
+
+      <div class="clones-grid" id="clonesGrid">
+        <!-- Rendered dynamically or empty state -->
+        <div class="empty-state" id="emptyClonesState">
+          <div class="empty-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+          <h3>No clones created yet</h3>
+          <p>Select any application above to create your first isolated profile clone.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Create Clone Modal Drawer -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h2 id="modalTitle">Create App Clone</h2>
+          <span class="modal-subtitle" id="modalSubtitle">Configure isolated account profile</span>
+        </div>
+        <button class="btn-close" id="btnCloseModal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Live Preview of the Squircle Icon with Badge -->
+        <div class="clone-preview-box">
+          <div class="preview-icon-wrapper" id="previewIconWrapper">
+            <img id="previewBaseIcon" src="" alt="App Icon" class="preview-base-icon">
+            <div class="preview-badge" id="previewBadge">
+              <span id="previewBadgeText">WK</span>
+            </div>
+          </div>
+          <div class="preview-details">
+            <h3 id="previewCloneName">App (Profile)</h3>
+            <p class="preview-path" id="previewDataPath">Isolated session storage</p>
+          </div>
+        </div>
+
+        <!-- Form Controls -->
+        <div class="form-group">
+          <label for="profileNameInput">Profile Name</label>
+          <input type="text" id="profileNameInput" class="form-input" placeholder="e.g. Work, Client B, Personal 2" autofocus>
+          <span class="input-hint">Will name the app bundle and its isolated storage folder.</span>
+        </div>
+
+        <div class="form-group">
+          <label>Badge Color Accent</label>
+          <div class="color-picker-row" id="colorPickerRow">
+            <button class="color-swatch active" data-color="#3B82F6" style="--c: #3B82F6" title="Electric Blue"></button>
+            <button class="color-swatch" data-color="#10B981" style="--c: #10B981" title="Emerald Green"></button>
+            <button class="color-swatch" data-color="#8B5CF6" style="--c: #8B5CF6" title="Violet"></button>
+            <button class="color-swatch" data-color="#F59E0B" style="--c: #F59E0B" title="Amber"></button>
+            <button class="color-swatch" data-color="#EF4444" style="--c: #EF4444" title="Crimson"></button>
+            <button class="color-swatch" data-color="#06B6D4" style="--c: #06B6D4" title="Cyan"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btnCancelClone">Cancel</button>
+        <button class="btn-primary" id="btnConfirmClone">
+          <span class="btn-text">Create Clone</span>
+          <span class="spinner" id="cloneSpinner"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toastNotification"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

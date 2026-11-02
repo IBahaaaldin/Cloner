@@ -339,6 +339,40 @@ body {
   box-shadow: 0 0 6px var(--success);
 }
 
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.status-indicator .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-indicator.ready {
+  color: var(--text-muted);
+}
+
+.status-indicator.ready .status-dot {
+  background: var(--text-muted);
+}
+
+.status-indicator.running {
+  color: var(--success);
+}
+
+.status-indicator.running .status-dot {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
 .clone-actions {
   display: flex;
   align-items: center;

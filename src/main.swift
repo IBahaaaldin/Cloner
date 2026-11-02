@@ -181,8 +181,8 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
 
         do {
             try task.run()
-            task.waitUntilExit()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            task.waitUntilExit()
             if let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
                 return json
             }
@@ -203,8 +203,8 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
 
         do {
             try task.run()
-            task.waitUntilExit()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            task.waitUntilExit()
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 return json
             }

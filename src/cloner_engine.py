@@ -20,7 +20,7 @@ KNOWN_APPS = [
         "name": "ChatGPT",
         "bundle_id": "com.openai.codex",
         "default_paths": ["/Applications/ChatGPT.app"],
-        "type": "native",
+        "type": "electron",
         "icon_name": "ChatGPT"
     },
     {
@@ -313,11 +313,15 @@ class ClonerEngine:
         clone_name = f"{app_info['name']} ({clean_profile})"
         clone_app_path = os.path.join(self.cloner_dir, f"{clone_name}.app")
 
-        # Specific isolated data directory
+        # Specific isolated data directory with secure 0700 permissions
         app_slug = "".join(c for c in app_info['name'] if c.isalnum() or c == '-').lower()
         profile_slug = clean_profile.lower().replace(" ", "-")
         isolated_data_dir = os.path.join(self.data_root, app_slug, profile_slug)
-        os.makedirs(isolated_data_dir, exist_ok=True)
+        os.makedirs(isolated_data_dir, mode=0o700, exist_ok=True)
+        try:
+            os.chmod(isolated_data_dir, 0o700)
+        except Exception:
+            pass
 
         # Scaffolding clone bundle
         contents_dir = os.path.join(clone_app_path, "Contents")
@@ -366,29 +370,15 @@ class ClonerEngine:
         launcher_path = os.path.join(macos_dir, "launcher")
         original_exec = os.path.join(app_path, "Contents", "MacOS", app_info["executable_name"])
 
-        if app_info["type"] == "electron":
-            launcher_script = f"""#!/bin/bash
-# Cloner Launcher for Electron app: {app_info['name']} ({clean_profile})
+        # Launcher script supporting Chromium/CEF/Electron isolated user-data-dir
+        launcher_script = f"""#!/bin/bash
+# Cloner Launcher for: {app_info['name']} ({clean_profile})
 DATA_DIR="{isolated_data_dir}"
 ORIGINAL_EXEC="{original_exec}"
 
 mkdir -p "$DATA_DIR"
+chmod 700 "$DATA_DIR"
 exec "$ORIGINAL_EXEC" --user-data-dir="$DATA_DIR" "$@"
-"""
-        else:
-            # Native Cocoa app (ChatGPT)
-            launcher_script = f"""#!/bin/bash
-# Cloner Launcher for Native app: {app_info['name']} ({clean_profile})
-DATA_DIR="{isolated_data_dir}"
-ORIGINAL_EXEC="{original_exec}"
-
-mkdir -p "$DATA_DIR/Library/Application Support"
-mkdir -p "$DATA_DIR/Library/WebKit"
-mkdir -p "$DATA_DIR/Library/Caches"
-mkdir -p "$DATA_DIR/Library/Preferences"
-
-export HOME="$DATA_DIR"
-exec "$ORIGINAL_EXEC" "$@"
 """
 
         with open(launcher_path, "w") as f:
@@ -402,11 +392,15 @@ exec "$ORIGINAL_EXEC" "$@"
         except Exception:
             pass
 
-        # 5. Refresh LaunchServices
-        try:
-            subprocess.run(["touch", clone_app_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
+        # 5. Register with LaunchServices
+        lsreg = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+        if os.path.exists(lsreg):
+            subprocess.run([lsreg, "-f", clone_app_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            try:
+                subprocess.run(["touch", clone_app_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
 
         return {
             "success": True,
@@ -442,10 +436,10 @@ exec "$ORIGINAL_EXEC" "$@"
                 badge_color = plist.get("ClonerBadgeColor", "#3B82F6")
                 bundle_id = plist.get("CFBundleIdentifier", "")
 
-                # Check if running
+                # Check if running by matching isolated data directory in arguments
                 is_running = False
                 try:
-                    check = subprocess.run(["pgrep", "-f", bundle_id], capture_output=True, text=True)
+                    check = subprocess.run(["pgrep", "-f", data_dir], capture_output=True, text=True)
                     is_running = (check.returncode == 0)
                 except Exception:
                     pass
@@ -478,7 +472,7 @@ exec "$ORIGINAL_EXEC" "$@"
         return clones
 
     def delete_app_clone(self, clone_path: str, remove_data: bool = False) -> bool:
-        """Deletes a clone application and optionally purges its profile data."""
+        """Deletes a clone application by moving to Trash and optionally purges its profile data."""
         if not os.path.exists(clone_path):
             return False
 
@@ -494,6 +488,20 @@ exec "$ORIGINAL_EXEC" "$@"
                 except Exception:
                     pass
 
+        # Unregister from LaunchServices
+        lsreg = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+        if os.path.exists(lsreg):
+            subprocess.run([lsreg, "-u", clone_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Move .app bundle to macOS Trash
+        try:
+            res = subprocess.run(["osascript", "-e", f'tell application "Finder" to delete POSIX file "{clone_path}"'], capture_output=True)
+            if res.returncode == 0:
+                return True
+        except Exception:
+            pass
+
+        # Fallback to rmtree if Finder is unavailable
         try:
             shutil.rmtree(clone_path)
             return True

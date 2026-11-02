@@ -198,6 +198,11 @@
               <span>Profile: <strong>${clone.profile_name}</strong></span>
               <span>•</span>
               <span>${clone.data_size || '0 MB'}</span>
+              <span>•</span>
+              <span class="status-indicator ${clone.is_running ? 'running' : 'ready'}">
+                <span class="status-dot"></span>
+                ${clone.is_running ? 'Running' : 'Ready'}
+              </span>
             </div>
           </div>
         </div>

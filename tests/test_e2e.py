@@ -44,6 +44,9 @@ class TestClonerE2E(unittest.TestCase):
         self.assertEqual(plist["ClonerProfileName"], "E2E Work")
         self.assertTrue(plist["CFBundleIdentifier"].startswith("com.cloner."))
         self.assertTrue(os.path.exists(plist["ClonerDataDir"]))
+        # Verify secure 0700 permissions
+        data_stat = os.stat(plist["ClonerDataDir"])
+        self.assertEqual(oct(data_stat.st_mode)[-3:], "700", f"Insecure permissions: {oct(data_stat.st_mode)}")
 
         # Check launcher script
         launcher_path = os.path.join(ag_clone_path, "Contents", "MacOS", "launcher")
