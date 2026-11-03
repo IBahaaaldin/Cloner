@@ -77,12 +77,16 @@ Option B (Drag and Drop):
 3. If macOS says "cannot check for malicious software":
    Go to System Settings -> Privacy & Security -> Click "Open Anyway".
 
-Option C (Terminal 1-Liner):
-   curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh | bash
+HOW TO SAFELY EJECT & DELETE THIS DMG:
+1. Make sure Cloner is closed or moved to Applications.
+2. In Finder, click the Eject icon next to "Cloner" in the left sidebar,
+   or right-click the Cloner disk icon on your desktop and select "Eject".
+3. Now you can move the downloaded "Cloner.dmg" file to the Trash!
 
 ------------------------------------------------------------
 FEATURES:
 • APFS Instant Cloning (<1 sec, 0 extra disk storage)
+• Clones appear directly on your Desktop as standalone apps
 • Completely separate sessions, cookies, logins, and chats
 • Color-coded badged squircle dock icons
 • Automatic Keychain linkage (Zero password reset prompts)
@@ -111,10 +115,17 @@ hdiutil create \
 
 cp "$DMG_FILE" "$DMG_VERSIONED"
 
-# 4. Clean up staging
+# 4. Also create a direct standalone ZIP distribution (for users who prefer direct app download without DMG)
+echo "==> Creating standalone Cloner.zip..."
+ZIP_FILE="$SCRIPT_DIR/Cloner.zip"
+rm -f "$ZIP_FILE"
+(cd "$SCRIPT_DIR" && zip -r -y -q "$ZIP_FILE" "Cloner.app")
+
+# 5. Clean up staging
 rm -rf "$STAGING_DIR"
 
 echo "==> Successfully created:"
 echo "    • $DMG_FILE"
 echo "    • $DMG_VERSIONED"
-ls -lh "$DMG_FILE"
+echo "    • $ZIP_FILE"
+ls -lh "$DMG_FILE" "$ZIP_FILE"

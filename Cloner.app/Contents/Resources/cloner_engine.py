@@ -49,7 +49,7 @@ KNOWN_APPS = [
     }
 ]
 
-DEFAULT_CLONER_DIR = os.path.expanduser("~/Desktop/Cloner")
+DEFAULT_CLONER_DIR = os.path.expanduser("~/Desktop")
 DEFAULT_DATA_ROOT = os.path.expanduser("~/Library/Application Support/Cloner")
 
 class ClonerEngine:
@@ -538,63 +538,73 @@ exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
         }
 
     def list_active_clones(self) -> List[Dict[str, Any]]:
-        """Scans the Cloner directory for created clone applications."""
+        """Scans the Desktop and legacy Cloner directory for created clone applications."""
         clones = []
-        if not os.path.exists(self.cloner_dir):
-            return clones
+        dirs_to_scan = [self.cloner_dir]
+        legacy_dir = os.path.expanduser("~/Desktop/Cloner")
+        if os.path.exists(legacy_dir) and os.path.abspath(legacy_dir) != os.path.abspath(self.cloner_dir):
+            dirs_to_scan.append(legacy_dir)
 
-        for item in sorted(os.listdir(self.cloner_dir)):
-            if not item.endswith(".app"):
+        seen_paths = set()
+        for scan_dir in dirs_to_scan:
+            if not os.path.exists(scan_dir):
                 continue
-            app_path = os.path.join(self.cloner_dir, item)
-            plist_path = os.path.join(app_path, "Contents", "Info.plist")
-            if not os.path.exists(plist_path):
-                continue
-            try:
-                with open(plist_path, "rb") as f:
-                    plist = plistlib.load(f)
-                if "ClonerProfileName" not in plist:
+
+            for item in sorted(os.listdir(scan_dir)):
+                if not item.endswith(".app"):
                     continue
-
-                profile_name = plist.get("ClonerProfileName", "")
-                base_name = plist.get("ClonerBaseAppName", item.replace(".app", ""))
-                base_path = plist.get("ClonerBaseAppPath", "")
-                data_dir = plist.get("ClonerDataDir", "")
-                badge_color = plist.get("ClonerBadgeColor", "#3B82F6")
-                bundle_id = plist.get("CFBundleIdentifier", "")
-
-                # Check if running by matching isolated data directory in arguments
-                is_running = False
+                app_path = os.path.join(scan_dir, item)
+                if app_path in seen_paths:
+                    continue
+                plist_path = os.path.join(app_path, "Contents", "Info.plist")
+                if not os.path.exists(plist_path):
+                    continue
                 try:
-                    check = subprocess.run(["pgrep", "-f", data_dir], capture_output=True, text=True)
-                    is_running = (check.returncode == 0)
-                except Exception:
-                    pass
+                    with open(plist_path, "rb") as f:
+                        plist = plistlib.load(f)
+                    if "ClonerProfileName" not in plist:
+                        continue
 
-                # Check data directory size
-                data_size_str = "0 MB"
-                if os.path.exists(data_dir):
+                    seen_paths.add(app_path)
+                    profile_name = plist.get("ClonerProfileName", "")
+                    base_name = plist.get("ClonerBaseAppName", item.replace(".app", ""))
+                    base_path = plist.get("ClonerBaseAppPath", "")
+                    data_dir = plist.get("ClonerDataDir", "")
+                    badge_color = plist.get("ClonerBadgeColor", "#3B82F6")
+                    bundle_id = plist.get("CFBundleIdentifier", "")
+
+                    # Check if running by matching isolated data directory in arguments
+                    is_running = False
                     try:
-                        du = subprocess.run(["du", "-sh", data_dir], capture_output=True, text=True)
-                        if du.returncode == 0 and du.stdout:
-                            data_size_str = du.stdout.split()[0]
+                        check = subprocess.run(["pgrep", "-f", data_dir], capture_output=True, text=True)
+                        is_running = (check.returncode == 0)
                     except Exception:
                         pass
 
-                clones.append({
-                    "name": item.replace(".app", ""),
-                    "path": app_path,
-                    "profile_name": profile_name,
-                    "base_app_name": base_name,
-                    "base_app_path": base_path,
-                    "data_dir": data_dir,
-                    "badge_color": badge_color,
-                    "bundle_id": bundle_id,
-                    "is_running": is_running,
-                    "data_size": data_size_str
-                })
-            except Exception:
-                continue
+                    # Check data directory size
+                    data_size_str = "0 MB"
+                    if os.path.exists(data_dir):
+                        try:
+                            du = subprocess.run(["du", "-sh", data_dir], capture_output=True, text=True)
+                            if du.returncode == 0 and du.stdout:
+                                data_size_str = du.stdout.split()[0]
+                        except Exception:
+                            pass
+
+                    clones.append({
+                        "name": item.replace(".app", ""),
+                        "path": app_path,
+                        "profile_name": profile_name,
+                        "base_app_name": base_name,
+                        "base_app_path": base_path,
+                        "data_dir": data_dir,
+                        "badge_color": badge_color,
+                        "bundle_id": bundle_id,
+                        "is_running": is_running,
+                        "data_size": data_size_str
+                    })
+                except Exception:
+                    continue
 
         return clones
 

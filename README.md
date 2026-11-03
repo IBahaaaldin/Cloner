@@ -6,7 +6,8 @@
 
 <div align="center">
 
-[![Download Cloner DMG](https://img.shields.io/badge/Download_DMG-v1.0.0_macOS-0066cc?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg)
+[![Download Cloner DMG](https://img.shields.io/badge/Download_DMG-v1.0.0_macOS-0066cc?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/IBahaaaldin/Cloner/raw/main/Cloner.dmg)
+[![Download Cloner ZIP](https://img.shields.io/badge/Download_ZIP-v1.0.0_macOS-10B981?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/IBahaaaldin/Cloner/raw/main/Cloner.zip)
 [![macOS 14+](https://img.shields.io/badge/macOS-14.0%2B-000000?style=for-the-badge&logo=apple)](https://apple.com)
 [![Architecture: Apple Silicon](https://img.shields.io/badge/Architecture-Apple_Silicon_arm64-8B5CF6?style=for-the-badge)](https://apple.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge)](LICENSE)
@@ -25,11 +26,19 @@
 
 ---
 
-## ⚡ Quick 1-Click Install (Zero Hassle)
+## ⚡ Fast & Flexible Installation
 
-Choose either of the two painless ways to install:
+Choose whatever installation method fits you best:
 
-### Option 1: 1-Line Terminal Auto-Installer (Recommended)
+### Option 1: Standalone ZIP (Easiest — Direct App, Zero Disk Mounting)
+1. **[Click here to download Cloner.zip](https://github.com/IBahaaaldin/Cloner/raw/main/Cloner.zip)**
+2. Unzip the file. You will get **`Cloner.app`** directly.
+3. Move **`Cloner.app`** to your **Applications** folder or keep it on your **Desktop**.
+4. Double-click to run! (No disk images to eject, no files locked).
+
+---
+
+### Option 2: 1-Line Terminal Auto-Installer
 Automatically downloads, installs to `/Applications`, clears macOS Gatekeeper quarantine, and launches Cloner:
 ```bash
 curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh | bash
@@ -37,15 +46,16 @@ curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh |
 
 ---
 
-### Option 2: Standalone Disk Image (`.dmg`)
-1. **[Click here to download Cloner.dmg (v1.0.0)](https://github.com/IBahaaaldin/Cloner/releases/download/v1.0.0/Cloner.dmg)**
-2. Double-click **`Cloner.dmg`**.
-3. **Instant Launch**: Simply double-click **`Launch Cloner (First-Time Bypass).command`** inside the disk image. It automatically installs Cloner to `/Applications`, clears macOS Gatekeeper quarantine, and launches the app!
-4. Or manually drag **`Cloner.app`** into **`Applications`**.
+### Option 3: Traditional Disk Image (`.dmg`)
+1. **[Click here to download Cloner.dmg](https://github.com/IBahaaaldin/Cloner/raw/main/Cloner.dmg)**
+2. Double-click **`Cloner.dmg`** to open it.
+3. Drag **`Cloner.app`** to the **Applications** shortcut.
+4. **Auto-Install Prompt**: If you open Cloner directly from the disk image, Cloner will automatically offer to move itself to `/Applications` for you.
+5. **How to eject/delete the DMG**: Once Cloner is installed in Applications, eject the disk from Finder's sidebar (⏏ icon), then move `Cloner.dmg` to the Trash!
 
 > [!TIP]
-> **Zero Gatekeeper Friction**:  
-> Double-clicking the included **`Launch Cloner (First-Time Bypass).command`** bypasses the macOS unsigned app warning automatically in 1 second. Alternatively, you can run `xattr -cr /Applications/Cloner.app` or click **Open Anyway** in `System Settings → Privacy & Security`.
+> **First-Time macOS Permission Note**:  
+> If macOS displays *"cannot check for malicious software"* because Cloner is an open-source tool, simply open **System Settings → Privacy & Security** and click **Open Anyway**, or double-click the included `Launch Cloner (First-Time Bypass).command`!
 
 ---
 

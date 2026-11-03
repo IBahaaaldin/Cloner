@@ -260,6 +260,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
     var bridgeHandler: ClonerBridgeHandler!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let bundle = Bundle.main
+        if bundle.bundlePath.hasPrefix("/Volumes/") {
+            if checkDiskImageRunning(bundlePath: bundle.bundlePath) {
+                return
+            }
+        }
+
         setupMainMenu()
 
         let windowWidth: CGFloat = 880
@@ -283,7 +290,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
         window.delegate = self
 
         // Locate resources
-        let bundle = Bundle.main
         let enginePath = bundle.path(forResource: "cloner_engine", ofType: "py") ??
             (bundle.bundlePath as NSString).deletingLastPathComponent + "/src/cloner_engine.py"
 
@@ -368,6 +374,47 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return true
+    }
+
+    private func checkDiskImageRunning(bundlePath: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Install Cloner to Applications?"
+        alert.informativeText = "Cloner is currently running from a downloaded disk image (.dmg).\n\nMoving it to your Applications folder installs it as a normal macOS application, unlocks the .dmg so you can delete it immediately, and makes Cloner accessible from Launchpad and Spotlight."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Move to Applications")
+        alert.addButton(withTitle: "Run Once from Disk Image")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let destPath = "/Applications/Cloner.app"
+            let fileManager = FileManager.default
+
+            do {
+                if fileManager.fileExists(atPath: destPath) {
+                    try fileManager.removeItem(atPath: destPath)
+                }
+                try fileManager.copyItem(atPath: bundlePath, toPath: destPath)
+
+                // Remove quarantine attribute
+                let xattr = Process()
+                xattr.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+                xattr.arguments = ["-cr", destPath]
+                try? xattr.run()
+                xattr.waitUntilExit()
+
+                // Launch from Applications
+                let openProcess = Process()
+                openProcess.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                openProcess.arguments = [destPath]
+                try? openProcess.run()
+
+                // Terminate volume process so DMG can be unmounted and deleted immediately
+                exit(0)
+            } catch {
+                print("Failed to auto-move to Applications: \(error)")
+            }
+        }
+        return false
     }
 
     private func setupMainMenu() {
