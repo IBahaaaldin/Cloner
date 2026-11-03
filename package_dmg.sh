@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_PATH="$SCRIPT_DIR/Cloner.app"
 DMG_NAME="Cloner"
 DMG_FILE="$SCRIPT_DIR/${DMG_NAME}.dmg"
-DMG_VERSIONED="$SCRIPT_DIR/${DMG_NAME}-1.0.0.dmg"
+DMG_VERSIONED="$SCRIPT_DIR/${DMG_NAME}-1.0.1.dmg"
 STAGING_DIR="/tmp/cloner_dmg_staging"
 
 echo "==> Packaging Cloner for macOS distribution..."
@@ -60,7 +60,7 @@ chmod +x "$STAGING_DIR/Launch Cloner (First-Time Bypass).command"
 # Add README install guide inside DMG with complete author credentials
 cat << 'EOF' > "$STAGING_DIR/Install Instructions.txt"
 ============================================================
-              CLONER FOR MACOS (v1.0.0)
+              CLONER FOR MACOS (v1.0.1)
    Run Multiple Independent Accounts Simultaneously
 ============================================================
 

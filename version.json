@@ -1,0 +1,6 @@
+{
+  "version": "1.0.1",
+  "download_url": "https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/Cloner.zip",
+  "release_notes": "• Clones now appear directly as standalone apps on your Desktop\n• Automatic move-to-Applications when opened from DMG (unlocks DMG for immediate deletion)\n• Direct standalone Cloner.zip distribution\n• Built-in background auto-updater with 1-click update & relaunch",
+  "min_macos": "14.0"
+}

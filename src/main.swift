@@ -319,6 +319,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+
+        // Silent background update check after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            self?.checkForUpdates(silent: true)
+        }
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -340,8 +345,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
     @objc func showAboutPanel() {
         let options: [NSApplication.AboutPanelOptionKey: Any] = [
             .applicationName: "Cloner",
-            .applicationVersion: "1.0.0",
-            .version: "v1.0.0 (Apple Silicon)",
+            .applicationVersion: "1.0.1",
+            .version: "v1.0.1 (Apple Silicon)",
             .credits: NSAttributedString(
                 string: "Created by Bahaa Mohammed\n• Instagram: @ibahaaaldincoding\n• GitHub: @IBahaaaldin\n• LinkedIn: Bahaa Mohammed\n• Email: bahaam.coding@gmail.com",
                 attributes: [
@@ -351,6 +356,157 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
             )
         ]
         NSApp.orderFrontStandardAboutPanel(options: options)
+    }
+
+    // MARK: - Auto-Updater
+    let updateCheckURL = URL(string: "https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/version.json")!
+
+    @objc func menuCheckForUpdates() {
+        checkForUpdates(silent: false)
+    }
+
+    func checkForUpdates(silent: Bool) {
+        let task = URLSession.shared.dataTask(with: updateCheckURL) { [weak self] data, response, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                if !silent {
+                    DispatchQueue.main.async {
+                        let alert = NSAlert()
+                        alert.messageText = "Update Check Failed"
+                        alert.informativeText = "Could not check for updates. Please check your internet connection and try again.\n\nError: \(error.localizedDescription)"
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: "OK")
+                        alert.runModal()
+                    }
+                }
+                return
+            }
+
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let remoteVersion = json["version"] as? String,
+                  let downloadUrl = json["download_url"] as? String else {
+                if !silent {
+                    DispatchQueue.main.async {
+                        let alert = NSAlert()
+                        alert.messageText = "Update Check Failed"
+                        alert.informativeText = "Received invalid update response from server."
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: "OK")
+                        alert.runModal()
+                    }
+                }
+                return
+            }
+
+            let releaseNotes = json["release_notes"] as? String ?? "Includes latest stability improvements and features."
+            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1"
+
+            DispatchQueue.main.async {
+                if currentVersion.compare(remoteVersion, options: .numeric) == .orderedAscending {
+                    let alert = NSAlert()
+                    alert.messageText = "Update Available: Cloner v\(remoteVersion)"
+                    alert.informativeText = "A new version of Cloner is available (currently using v\(currentVersion)).\n\nWhat's New:\n\(releaseNotes)\n\nWould you like to install the update now?"
+                    alert.alertStyle = .informational
+                    alert.addButton(withTitle: "Update & Relaunch")
+                    alert.addButton(withTitle: "Later")
+
+                    if alert.runModal() == .alertFirstButtonReturn {
+                        self.performAutoUpdate(downloadUrlString: downloadUrl, newVersion: remoteVersion)
+                    }
+                } else if !silent {
+                    let alert = NSAlert()
+                    alert.messageText = "You're Up to Date!"
+                    alert.informativeText = "Cloner v\(currentVersion) is the newest version available."
+                    alert.alertStyle = .informational
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+            }
+        }
+        task.resume()
+    }
+
+    private func performAutoUpdate(downloadUrlString: String, newVersion: String) {
+        guard let url = URL(string: downloadUrlString) else { return }
+
+        let currentPath = Bundle.main.bundlePath
+        let targetAppPath: String
+        if currentPath.hasPrefix("/Volumes/") {
+            targetAppPath = "/Applications/Cloner.app"
+        } else {
+            targetAppPath = currentPath
+        }
+
+        let downloadTask = URLSession.shared.downloadTask(with: url) { tempURL, response, error in
+            guard let tempURL = tempURL, error == nil else {
+                DispatchQueue.main.async {
+                    let errAlert = NSAlert()
+                    errAlert.messageText = "Update Download Failed"
+                    errAlert.informativeText = "Could not download update: \(error?.localizedDescription ?? "Network error")"
+                    errAlert.alertStyle = .critical
+                    errAlert.addButton(withTitle: "OK")
+                    errAlert.runModal()
+                }
+                return
+            }
+
+            let fileManager = FileManager.default
+            let updateDir = URL(fileURLWithPath: "/tmp/ClonerUpdate")
+            let zipPath = updateDir.appendingPathComponent("Cloner.zip")
+            let extractDir = updateDir.appendingPathComponent("extracted")
+
+            do {
+                if fileManager.fileExists(atPath: updateDir.path) {
+                    try fileManager.removeItem(at: updateDir)
+                }
+                try fileManager.createDirectory(at: extractDir, withIntermediateDirectories: true)
+                try fileManager.moveItem(at: tempURL, to: zipPath)
+
+                let ditto = Process()
+                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                ditto.arguments = ["-xk", zipPath.path, extractDir.path]
+                try ditto.run()
+                ditto.waitUntilExit()
+
+                let newAppBundle = extractDir.appendingPathComponent("Cloner.app")
+                guard fileManager.fileExists(atPath: newAppBundle.path) else {
+                    throw NSError(domain: "ClonerUpdate", code: 1, userInfo: [NSLocalizedDescriptionKey: "Extracted update bundle not found."])
+                }
+
+                let scriptContent = """
+                sleep 0.8
+                rm -rf "\(targetAppPath)"
+                cp -R "\(newAppBundle.path)" "\(targetAppPath)"
+                xattr -cr "\(targetAppPath)" 2>/dev/null || true
+                open "\(targetAppPath)"
+                rm -rf "\(updateDir.path)"
+                """
+                let scriptPath = updateDir.appendingPathComponent("relaunch.sh")
+                try scriptContent.write(to: scriptPath, atomically: true, encoding: .utf8)
+                try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath.path)
+
+                let restartProc = Process()
+                restartProc.executableURL = URL(fileURLWithPath: "/bin/bash")
+                restartProc.arguments = [scriptPath.path]
+                try restartProc.run()
+
+                DispatchQueue.main.async {
+                    exit(0)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    let errAlert = NSAlert()
+                    errAlert.messageText = "Update Installation Failed"
+                    errAlert.informativeText = "Error installing update: \(error.localizedDescription)"
+                    errAlert.alertStyle = .critical
+                    errAlert.addButton(withTitle: "OK")
+                    errAlert.runModal()
+                }
+            }
+        }
+        downloadTask.resume()
     }
 
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
@@ -429,6 +585,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
         let aboutItem = NSMenuItem(title: "About \(appName)", action: #selector(showAboutPanel), keyEquivalent: "")
         aboutItem.target = self
         appMenu.addItem(aboutItem)
+
+        let updateItem = NSMenuItem(title: "Check for Updates...", action: #selector(menuCheckForUpdates), keyEquivalent: "u")
+        updateItem.keyEquivalentModifierMask = [.command]
+        updateItem.target = self
+        appMenu.addItem(updateItem)
+
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthers = NSMenuItem(title: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
