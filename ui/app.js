@@ -112,6 +112,10 @@
 
   async function loadClones(skipAutoSync = false) {
     const res = await postNativeMessage("getClones");
+    if (res.app_version) {
+      const vt = document.querySelector(".version-tag");
+      if (vt) vt.textContent = `Cloner for macOS • v${res.app_version}`;
+    }
     activeClones = res.clones || [];
     renderClonesGrid();
 

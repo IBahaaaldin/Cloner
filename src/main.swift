@@ -50,6 +50,7 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
                     }
                 }
                 responseData["clones"] = clones
+                responseData["app_version"] = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.3"
 
             case "pickCustomApp":
                 DispatchQueue.main.async {
@@ -357,7 +358,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
     }
 
     @objc func showAboutPanel() {
-        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2"
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.3"
         let options: [NSApplication.AboutPanelOptionKey: Any] = [
             .applicationName: "Cloner",
             .applicationVersion: appVersion,
@@ -416,7 +417,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
             }
 
             let releaseNotes = json["release_notes"] as? String ?? "Includes latest stability improvements and features."
-            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2"
+            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.3"
 
             DispatchQueue.main.async {
                 if currentVersion.compare(remoteVersion, options: .numeric) == .orderedAscending {

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "download_url": "https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/Cloner.zip",
-  "release_notes": "• Automatic clone bundle syncing: cloned apps now auto-update to match the base app version on launch without losing logins or chats\n• One-click Update button on clone cards in Cloner (including safe quit & relaunch for running clones)\n• Self-healing launcher upgrades for existing clones",
+  "release_notes": "• Reliable 1-click update & quit for running Electron apps (including apps with Menu Bar tray mode enabled)\n• Dynamic footer version badge matching active Cloner build\n• Auto-sync cloned bundles with base app updates on launch",
   "min_macos": "14.0"
 }

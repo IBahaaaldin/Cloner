@@ -630,24 +630,88 @@ exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data"{extra_args} "$@"
         """Checks if a cloned application process is currently running."""
         return bool(self._find_clone_pids(clone_path, data_dir))
 
-    def _stop_clone_processes(self, clone_path: str, data_dir: str, timeout_sec: float = 5.0) -> bool:
-        """Gracefully terminates running processes for a clone before an in-place update."""
-        pids = self._find_clone_pids(clone_path, data_dir)
-        if not pids:
-            return True
+    def _get_main_clone_pids(self, clone_path: str) -> List[int]:
+        """Returns PIDs whose executable lives inside Contents/MacOS/ of the clone."""
+        my_pids = {os.getpid(), os.getppid()}
+        macos_prefix = os.path.join(clone_path, "Contents", "MacOS") + os.sep
+        pids = []
+        try:
+            ps = subprocess.run(["ps", "-eo", "pid=,args="], capture_output=True, text=True)
+            if ps.returncode == 0:
+                for line in ps.stdout.splitlines():
+                    parts = line.strip().split(None, 1)
+                    if len(parts) < 2:
+                        continue
+                    try:
+                        pid = int(parts[0])
+                    except ValueError:
+                        continue
+                    if pid not in my_pids and macos_prefix in parts[1]:
+                        pids.append(pid)
+        except Exception:
+            pass
+        return pids
+
+    def _signal_pids(self, pids: List[int], sig: int) -> None:
         for pid in pids:
             try:
-                os.kill(pid, signal.SIGTERM)
+                os.kill(pid, sig)
             except ProcessLookupError:
                 pass
             except Exception:
                 pass
+
+    def _wait_until_stopped(self, clone_path: str, data_dir: str, timeout_sec: float) -> bool:
         deadline = time.time() + timeout_sec
         while time.time() < deadline:
             if not self._find_clone_pids(clone_path, data_dir):
                 return True
-            time.sleep(0.15)
+            time.sleep(0.12)
         return not self._find_clone_pids(clone_path, data_dir)
+
+    def _stop_clone_processes(self, clone_path: str, data_dir: str, timeout_sec: float = 5.0) -> bool:
+        """Gracefully quits a clone, then escalates from main process to helpers without respawn."""
+        if not self._find_clone_pids(clone_path, data_dir):
+            return True
+
+        # 1. Try graceful Cocoa AppleEvent quit by bundle ID or app path
+        bundle_id = ""
+        plist_path = os.path.join(clone_path, "Contents", "Info.plist")
+        if os.path.exists(plist_path):
+            try:
+                with open(plist_path, "rb") as f:
+                    bundle_id = plistlib.load(f).get("CFBundleIdentifier", "")
+            except Exception:
+                pass
+        if bundle_id:
+            try:
+                subprocess.run(
+                    ["osascript", "-e", f'tell application id "{bundle_id}" to quit'],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2.0
+                )
+            except Exception:
+                pass
+            if self._wait_until_stopped(clone_path, data_dir, min(2.0, timeout_sec)):
+                return True
+
+        # 2. Terminate main process first so Electron does not respawn killed helpers
+        main_pids = self._get_main_clone_pids(clone_path)
+        if main_pids:
+            self._signal_pids(main_pids, signal.SIGTERM)
+            if self._wait_until_stopped(clone_path, data_dir, 1.5):
+                return True
+
+        # 3. Force-kill main PIDs first, then any lingering helper/crashpad processes
+        main_pids = self._get_main_clone_pids(clone_path)
+        if main_pids:
+            self._signal_pids(main_pids, signal.SIGKILL)
+            time.sleep(0.1)
+
+        remaining = self._find_clone_pids(clone_path, data_dir)
+        if remaining:
+            self._signal_pids(remaining, signal.SIGKILL)
+
+        return self._wait_until_stopped(clone_path, data_dir, 1.5)
 
     def sync_app_clone(self, clone_path: str, force: bool = False, stop_if_running: bool = False) -> Dict[str, Any]:
         """Updates an existing clone bundle from its base app while preserving isolated data."""
