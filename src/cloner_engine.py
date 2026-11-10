@@ -7,6 +7,8 @@ Core backend logic for detecting, cloning, badging, and managing macOS AI applic
 import os
 import sys
 import json
+import time
+import signal
 import shutil
 import subprocess
 import plistlib
@@ -199,7 +201,9 @@ class ClonerEngine:
             "bundle_id": bundle_id,
             "executable_name": executable_name,
             "icon_path": icon_path,
-            "type": app_type
+            "type": app_type,
+            "version": str(plist.get("CFBundleShortVersionString", "")),
+            "build": str(plist.get("CFBundleVersion", ""))
         }
 
     def create_badged_icon(self, src_icns: str, out_icns: str, badge_color: str, badge_text: str = "") -> bool:
@@ -395,16 +399,124 @@ class ClonerEngine:
         # APFS instant clone of the entire app bundle (0 extra disk space on APFS)
         subprocess.run(["cp", "-cR", app_path, clone_app_path], check=True)
 
-        contents_dir = os.path.join(clone_app_path, "Contents")
+        unique_bundle_id = f"com.cloner.{app_slug}.{profile_slug}"
+        self._configure_clone_bundle(
+            target_bundle_path=clone_app_path,
+            base_app_path=app_path,
+            app_info=app_info,
+            clone_name=clone_name,
+            clean_profile=clean_profile,
+            unique_bundle_id=unique_bundle_id,
+            isolated_data_dir=isolated_data_dir,
+            badge_color=badge_color,
+        )
+
+        return {
+            "success": True,
+            "clone_name": clone_name,
+            "clone_path": clone_app_path,
+            "data_dir": isolated_data_dir,
+            "bundle_id": unique_bundle_id
+        }
+
+    def _build_launcher_script(
+        self,
+        app_key: str,
+        exec_name: str,
+        isolated_data_dir: str,
+        base_app_path: str,
+    ) -> str:
+        """Builds an isolated wrapper script with automatic base-app version sync on launch."""
+        real_home = os.path.expanduser("~")
+        is_chatgpt = "chatgpt" in app_key
+        is_ide = ("antigravity ide" in app_key or "code" in app_key) and not is_chatgpt
+
+        extra_dirs = ' "$DATA_DIR/tmp"' if is_chatgpt else (' "$DATA_DIR/extensions"' if is_ide else "")
+        extra_exports = (
+            'export TMPDIR="$DATA_DIR/tmp"\n'
+            'export CODEX_ELECTRON_USER_DATA_PATH="$DATA_DIR/data"\n'
+            if is_chatgpt
+            else ""
+        )
+        extra_args = ' --extensions-dir="$DATA_DIR/extensions"' if is_ide else ""
+
+        return f"""#!/bin/bash
+DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_BUNDLE="$(cd "$DIR/../.." && pwd)"
+DATA_DIR="{isolated_data_dir}"
+REAL_HOME="{real_home}"
+CLONE_PLIST="$DIR/../Info.plist"
+
+if [ -z "$CLONER_SYNC_ATTEMPTED" ] && [ -f "$CLONE_PLIST" ]; then
+    BASE_APP=$(/usr/bin/defaults read "$CLONE_PLIST" ClonerBaseAppPath 2>/dev/null)
+    [ -z "$BASE_APP" ] && BASE_APP="{base_app_path}"
+    BASE_PLIST="$BASE_APP/Contents/Info.plist"
+    if [ -f "$BASE_PLIST" ]; then
+        BASE_VER=$(/usr/bin/defaults read "$BASE_PLIST" CFBundleShortVersionString 2>/dev/null || true)
+        CLONE_VER=$(/usr/bin/defaults read "$CLONE_PLIST" CFBundleShortVersionString 2>/dev/null || true)
+        BASE_BUILD=$(/usr/bin/defaults read "$BASE_PLIST" CFBundleVersion 2>/dev/null || true)
+        CLONE_BUILD=$(/usr/bin/defaults read "$CLONE_PLIST" CFBundleVersion 2>/dev/null || true)
+        if [ -n "$BASE_VER" ] && {{ [ "$BASE_VER" != "$CLONE_VER" ] || [ "$BASE_BUILD" != "$CLONE_BUILD" ]; }}; then
+            if ! /usr/bin/pgrep -f -- "--user-data-dir=$DATA_DIR[/]data" >/dev/null 2>&1; then
+                CLONER_ENGINE=""
+                for p in "/Applications/Cloner.app/Contents/Resources/cloner_engine.py" \\
+                         "$REAL_HOME/Applications/Cloner.app/Contents/Resources/cloner_engine.py" \\
+                         "$REAL_HOME/Desktop/Cloner.app/Contents/Resources/cloner_engine.py" \\
+                         "$REAL_HOME/Desktop/Cloner/src/cloner_engine.py"; do
+                    if [ -f "$p" ]; then
+                        CLONER_ENGINE="$p"
+                        break
+                    fi
+                done
+                if [ -n "$CLONER_ENGINE" ]; then
+                    export CLONER_SYNC_ATTEMPTED=1
+                    if /usr/bin/python3 "$CLONER_ENGINE" sync --clone-path "$APP_BUNDLE" >/dev/null 2>&1; then
+                        NEW_EXEC=$(/usr/bin/defaults read "$APP_BUNDLE/Contents/Info.plist" CFBundleExecutable 2>/dev/null || basename "$0")
+                        if [ -x "$APP_BUNDLE/Contents/MacOS/$NEW_EXEC" ]; then
+                            exec "$APP_BUNDLE/Contents/MacOS/$NEW_EXEC" "$@"
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    fi
+fi
+
+mkdir -p "$DATA_DIR/data" "$DATA_DIR/Library"{extra_dirs}
+chmod 700 "$DATA_DIR"
+
+if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains" ]; then
+    ln -s "$REAL_HOME/Library/Keychains" "$DATA_DIR/Library/Keychains" 2>/dev/null || true
+fi
+
+export HOME="$DATA_DIR"
+{extra_exports}export XDG_CONFIG_HOME="$DATA_DIR/.config"
+export XDG_DATA_HOME="$DATA_DIR/.local/share"
+export XDG_CACHE_HOME="$DATA_DIR/.cache"
+
+exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data"{extra_args} "$@"
+"""
+
+    def _configure_clone_bundle(
+        self,
+        target_bundle_path: str,
+        base_app_path: str,
+        app_info: Dict[str, Any],
+        clone_name: str,
+        clean_profile: str,
+        unique_bundle_id: str,
+        isolated_data_dir: str,
+        badge_color: str,
+    ) -> None:
+        """Applies Cloner plist metadata, launcher wrapper, badged icon, and ad-hoc signature."""
+        contents_dir = os.path.join(target_bundle_path, "Contents")
         macos_dir = os.path.join(contents_dir, "MacOS")
         resources_dir = os.path.join(contents_dir, "Resources")
 
-        # 1. Configure Info.plist with unique bundle ID and display name
         plist_path = os.path.join(contents_dir, "Info.plist")
         with open(plist_path, "rb") as f:
             clone_plist = plistlib.load(f)
 
-        unique_bundle_id = f"com.cloner.{app_slug}.{profile_slug}"
         clone_plist["CFBundleIdentifier"] = unique_bundle_id
         # Preserve CFBundleName so Electron can locate its Helper.app bundles in Frameworks
         orig_bundle_name = clone_plist.get("CFBundleName", app_info["name"])
@@ -412,7 +524,7 @@ class ClonerEngine:
         clone_plist["CFBundleDisplayName"] = clone_name
         clone_plist["ClonerProfileName"] = clean_profile
         clone_plist["ClonerBaseAppName"] = app_info["name"]
-        clone_plist["ClonerBaseAppPath"] = app_path
+        clone_plist["ClonerBaseAppPath"] = base_app_path
         clone_plist["ClonerDataDir"] = isolated_data_dir
         clone_plist["ClonerBadgeColor"] = badge_color
         clone_plist["ClonerAppType"] = app_info["type"]
@@ -420,7 +532,7 @@ class ClonerEngine:
         with open(plist_path, "wb") as f:
             plistlib.dump(clone_plist, f)
 
-        # 1.5 Customise Owl / Codex framework configuration if present
+        # Customise Owl / Codex framework configuration if present
         owl_ini = os.path.join(resources_dir, "owl-app.ini")
         if os.path.exists(owl_ini):
             try:
@@ -432,7 +544,7 @@ class ClonerEngine:
             except Exception:
                 pass
 
-        # 2. Inject isolated profile wrapper in MacOS directory
+        # Inject isolated profile wrapper in MacOS directory
         exec_name = app_info["executable_name"]
         orig_bin = os.path.join(macos_dir, exec_name)
         renamed_bin = os.path.join(macos_dir, f"{exec_name}_orig")
@@ -440,75 +552,13 @@ class ClonerEngine:
         if not os.path.exists(renamed_bin) and os.path.exists(orig_bin):
             os.rename(orig_bin, renamed_bin)
 
-        real_home = os.path.expanduser("~")
-        if "chatgpt" in app_key:
-            launcher_script = f"""#!/bin/bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
-DATA_DIR="{isolated_data_dir}"
-REAL_HOME="{real_home}"
-
-mkdir -p "$DATA_DIR/data" "$DATA_DIR/Library" "$DATA_DIR/tmp"
-chmod 700 "$DATA_DIR"
-
-if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains" ]; then
-    ln -s "$REAL_HOME/Library/Keychains" "$DATA_DIR/Library/Keychains" 2>/dev/null || true
-fi
-
-export HOME="$DATA_DIR"
-export TMPDIR="$DATA_DIR/tmp"
-export CODEX_ELECTRON_USER_DATA_PATH="$DATA_DIR/data"
-export XDG_CONFIG_HOME="$DATA_DIR/.config"
-export XDG_DATA_HOME="$DATA_DIR/.local/share"
-export XDG_CACHE_HOME="$DATA_DIR/.cache"
-
-exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
-"""
-        elif "antigravity ide" in app_key or "code" in app_key:
-            launcher_script = f"""#!/bin/bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
-DATA_DIR="{isolated_data_dir}"
-REAL_HOME="{real_home}"
-
-mkdir -p "$DATA_DIR/data" "$DATA_DIR/extensions" "$DATA_DIR/Library"
-chmod 700 "$DATA_DIR"
-
-if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains" ]; then
-    ln -s "$REAL_HOME/Library/Keychains" "$DATA_DIR/Library/Keychains" 2>/dev/null || true
-fi
-
-export HOME="$DATA_DIR"
-export XDG_CONFIG_HOME="$DATA_DIR/.config"
-export XDG_DATA_HOME="$DATA_DIR/.local/share"
-export XDG_CACHE_HOME="$DATA_DIR/.cache"
-
-exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" --extensions-dir="$DATA_DIR/extensions" "$@"
-"""
-        else:
-            launcher_script = f"""#!/bin/bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
-DATA_DIR="{isolated_data_dir}"
-REAL_HOME="{real_home}"
-
-mkdir -p "$DATA_DIR/data" "$DATA_DIR/Library"
-chmod 700 "$DATA_DIR"
-
-if [ -d "$REAL_HOME/Library/Keychains" ] && [ ! -e "$DATA_DIR/Library/Keychains" ]; then
-    ln -s "$REAL_HOME/Library/Keychains" "$DATA_DIR/Library/Keychains" 2>/dev/null || true
-fi
-
-export HOME="$DATA_DIR"
-export XDG_CONFIG_HOME="$DATA_DIR/.config"
-export XDG_DATA_HOME="$DATA_DIR/.local/share"
-export XDG_CACHE_HOME="$DATA_DIR/.cache"
-
-exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
-"""
-
+        app_key = app_info["name"].lower()
+        launcher_script = self._build_launcher_script(app_key, exec_name, isolated_data_dir, base_app_path)
         with open(orig_bin, "w") as f:
             f.write(launcher_script)
         os.chmod(orig_bin, 0o755)
 
-        # 3. Create badged icon
+        # Create badged icon
         icon_file = clone_plist.get("CFBundleIconFile", "AppIcon")
         if not icon_file.endswith(".icns"):
             icon_file += ".icns"
@@ -517,25 +567,224 @@ exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
         if app_info["icon_path"] and os.path.exists(app_info["icon_path"]):
             self.create_badged_icon(app_info["icon_path"], out_icns, badge_color, initials)
 
-        # 4. Ad-hoc codesign the full cloned bundle
+        # Ad-hoc codesign the cloned bundle
         try:
-            subprocess.run(["codesign", "--force", "--deep", "--sign", "-", clone_app_path],
+            subprocess.run(["codesign", "--force", "--deep", "--sign", "-", target_bundle_path],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception:
             pass
 
-        # 5. Register with LaunchServices
+        # Register with LaunchServices
         lsreg = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
         if os.path.exists(lsreg):
-            subprocess.run([lsreg, "-f", clone_app_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run([lsreg, "-f", target_bundle_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        return {
-            "success": True,
-            "clone_name": clone_name,
-            "clone_path": clone_app_path,
-            "data_dir": isolated_data_dir,
-            "bundle_id": unique_bundle_id
-        }
+    def _resolve_base_app_path(self, base_path: str, base_name: str) -> Optional[str]:
+        """Resolves the base application path, checking standard Application folders if moved."""
+        candidates = []
+        if base_path:
+            candidates.append(base_path)
+        clean_base = base_name.replace(".app", "")
+        if clean_base:
+            candidates.extend([
+                f"/Applications/{clean_base}.app",
+                os.path.expanduser(f"~/Applications/{clean_base}.app"),
+            ])
+        for candidate in candidates:
+            if candidate and os.path.exists(candidate):
+                return candidate
+        return None
+
+    def _find_clone_pids(self, clone_path: str, data_dir: str) -> List[int]:
+        """Returns active PIDs belonging to a cloned application without matching self."""
+        my_pids = {os.getpid(), os.getppid()}
+        macos_prefix = os.path.join(clone_path, "Contents", "MacOS") + os.sep
+        fw_prefix = os.path.join(clone_path, "Contents", "Frameworks") + os.sep
+        data_flag = f"--user-data-dir={data_dir}/data" if data_dir else ""
+        pids = []
+        try:
+            ps = subprocess.run(["ps", "-eo", "pid=,args="], capture_output=True, text=True)
+            if ps.returncode != 0:
+                return pids
+            for line in ps.stdout.splitlines():
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                parts = stripped.split(None, 1)
+                if len(parts) < 2:
+                    continue
+                try:
+                    pid = int(parts[0])
+                except ValueError:
+                    continue
+                if pid in my_pids:
+                    continue
+                args = parts[1]
+                if macos_prefix in args or fw_prefix in args or (data_flag and data_flag in args):
+                    pids.append(pid)
+        except Exception:
+            pass
+        return pids
+
+    def _is_clone_running(self, clone_path: str, data_dir: str) -> bool:
+        """Checks if a cloned application process is currently running."""
+        return bool(self._find_clone_pids(clone_path, data_dir))
+
+    def _stop_clone_processes(self, clone_path: str, data_dir: str, timeout_sec: float = 5.0) -> bool:
+        """Gracefully terminates running processes for a clone before an in-place update."""
+        pids = self._find_clone_pids(clone_path, data_dir)
+        if not pids:
+            return True
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            except Exception:
+                pass
+        deadline = time.time() + timeout_sec
+        while time.time() < deadline:
+            if not self._find_clone_pids(clone_path, data_dir):
+                return True
+            time.sleep(0.15)
+        return not self._find_clone_pids(clone_path, data_dir)
+
+    def sync_app_clone(self, clone_path: str, force: bool = False, stop_if_running: bool = False) -> Dict[str, Any]:
+        """Updates an existing clone bundle from its base app while preserving isolated data."""
+        if not clone_path or not os.path.exists(clone_path):
+            return {"success": False, "error": f"Clone bundle not found: {clone_path}"}
+
+        plist_path = os.path.join(clone_path, "Contents", "Info.plist")
+        if not os.path.exists(plist_path):
+            return {"success": False, "error": "Clone Info.plist missing"}
+
+        try:
+            with open(plist_path, "rb") as f:
+                clone_plist = plistlib.load(f)
+        except Exception as e:
+            return {"success": False, "error": f"Failed to read clone plist: {e}"}
+
+        profile_name = clone_plist.get("ClonerProfileName")
+        if not profile_name:
+            return {"success": False, "error": "Target is not a valid Cloner bundle"}
+
+        base_name = clone_plist.get("ClonerBaseAppName", os.path.basename(clone_path).replace(".app", ""))
+        base_path = self._resolve_base_app_path(clone_plist.get("ClonerBaseAppPath", ""), base_name)
+        if not base_path:
+            return {"success": False, "error": f"Base app '{base_name}' not found"}
+
+        app_info = self._inspect_app(base_path, default_type=clone_plist.get("ClonerAppType", "auto"))
+        if not app_info:
+            return {"success": False, "error": f"Base app at {base_path} is invalid"}
+
+        old_version = str(clone_plist.get("CFBundleShortVersionString", ""))
+        old_build = str(clone_plist.get("CFBundleVersion", ""))
+        new_version = app_info.get("version", "")
+        new_build = app_info.get("build", "")
+        data_dir = clone_plist.get("ClonerDataDir", "")
+
+        if self._is_clone_running(clone_path, data_dir):
+            if not stop_if_running:
+                return {"success": False, "running": True, "error": f"{os.path.basename(clone_path)} is currently running. Please quit it first."}
+            if not self._stop_clone_processes(clone_path, data_dir):
+                return {"success": False, "running": True, "error": f"Could not close all processes for {os.path.basename(clone_path)}. Please quit it manually."}
+
+        exec_script = os.path.join(clone_path, "Contents", "MacOS", clone_plist.get("CFBundleExecutable", ""))
+        has_auto_sync = False
+        if os.path.exists(exec_script):
+            try:
+                with open(exec_script, "rb") as sf:
+                    has_auto_sync = b"CLONER_SYNC_ATTEMPTED" in sf.read(8192)
+            except Exception:
+                pass
+
+        version_changed = bool(new_version and (new_version != old_version or new_build != old_build))
+        if not force and not version_changed and has_auto_sync:
+            return {
+                "success": True,
+                "updated": False,
+                "clone_path": clone_path,
+                "old_version": old_version,
+                "new_version": new_version,
+            }
+
+        clone_name = clone_plist.get("CFBundleDisplayName", os.path.basename(clone_path).replace(".app", ""))
+        badge_color = clone_plist.get("ClonerBadgeColor", "#3B82F6")
+        unique_bundle_id = clone_plist.get("CFBundleIdentifier", f"com.cloner.{base_name.lower()}.{profile_name.lower()}")
+
+        staging_path = f"{clone_path}.sync_tmp"
+        backup_path = f"{clone_path}.sync_bak"
+        for tmp in (staging_path, backup_path):
+            if os.path.exists(tmp):
+                shutil.rmtree(tmp, ignore_errors=True)
+
+        try:
+            subprocess.run(["cp", "-cR", base_path, staging_path], check=True)
+            self._configure_clone_bundle(
+                target_bundle_path=staging_path,
+                base_app_path=base_path,
+                app_info=app_info,
+                clone_name=clone_name,
+                clean_profile=profile_name,
+                unique_bundle_id=unique_bundle_id,
+                isolated_data_dir=data_dir,
+                badge_color=badge_color,
+            )
+
+            os.rename(clone_path, backup_path)
+            try:
+                os.rename(staging_path, clone_path)
+            except Exception as swap_err:
+                os.rename(backup_path, clone_path)
+                raise swap_err
+
+            try:
+                os.utime(clone_path, None)
+            except Exception:
+                pass
+            shutil.rmtree(backup_path, ignore_errors=True)
+
+            lsreg = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+            if os.path.exists(lsreg):
+                subprocess.run([lsreg, "-f", clone_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+            return {
+                "success": True,
+                "updated": True,
+                "clone_name": clone_name,
+                "clone_path": clone_path,
+                "old_version": old_version,
+                "new_version": new_version,
+            }
+        except Exception as e:
+            if os.path.exists(staging_path):
+                shutil.rmtree(staging_path, ignore_errors=True)
+            return {"success": False, "error": f"Failed to sync clone: {e}"}
+
+    def sync_outdated_clones(self) -> Dict[str, Any]:
+        """Automatically syncs all non-running outdated clones or clones missing self-sync wrappers."""
+        clones = self.list_active_clones()
+        synced = []
+        skipped_running = []
+        errors = []
+        for clone in clones:
+            if not clone.get("needs_update") and clone.get("has_auto_sync", True):
+                continue
+            if clone.get("is_running"):
+                if clone.get("needs_update"):
+                    skipped_running.append(clone["name"])
+                continue
+            res = self.sync_app_clone(clone["path"])
+            if res.get("success") and res.get("updated"):
+                synced.append({
+                    "name": clone["name"],
+                    "old_version": res.get("old_version", ""),
+                    "new_version": res.get("new_version", ""),
+                })
+            elif not res.get("success"):
+                errors.append({"name": clone["name"], "error": res.get("error", "Unknown error")})
+
+        return {"success": True, "synced": synced, "skipped_running": skipped_running, "errors": errors}
 
     def list_active_clones(self) -> List[Dict[str, Any]]:
         """Scans the Desktop and legacy Cloner directory for created clone applications."""
@@ -572,14 +821,35 @@ exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
                     data_dir = plist.get("ClonerDataDir", "")
                     badge_color = plist.get("ClonerBadgeColor", "#3B82F6")
                     bundle_id = plist.get("CFBundleIdentifier", "")
+                    clone_version = str(plist.get("CFBundleShortVersionString", ""))
+                    clone_build = str(plist.get("CFBundleVersion", ""))
 
-                    # Check if running by matching isolated data directory in arguments
-                    is_running = False
-                    try:
-                        check = subprocess.run(["pgrep", "-f", data_dir], capture_output=True, text=True)
-                        is_running = (check.returncode == 0)
-                    except Exception:
-                        pass
+                    resolved_base = self._resolve_base_app_path(base_path, base_name)
+                    base_version = ""
+                    base_build = ""
+                    if resolved_base:
+                        base_plist_path = os.path.join(resolved_base, "Contents", "Info.plist")
+                        if os.path.exists(base_plist_path):
+                            try:
+                                with open(base_plist_path, "rb") as bf:
+                                    bplist = plistlib.load(bf)
+                                base_version = str(bplist.get("CFBundleShortVersionString", ""))
+                                base_build = str(bplist.get("CFBundleVersion", ""))
+                            except Exception:
+                                pass
+
+                    needs_update = bool(base_version and (base_version != clone_version or base_build != clone_build))
+
+                    exec_script = os.path.join(app_path, "Contents", "MacOS", plist.get("CFBundleExecutable", ""))
+                    has_auto_sync = False
+                    if os.path.exists(exec_script):
+                        try:
+                            with open(exec_script, "rb") as sf:
+                                has_auto_sync = b"CLONER_SYNC_ATTEMPTED" in sf.read(8192)
+                        except Exception:
+                            pass
+
+                    is_running = self._is_clone_running(app_path, data_dir)
 
                     # Check data directory size
                     data_size_str = "0 MB"
@@ -596,10 +866,14 @@ exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
                         "path": app_path,
                         "profile_name": profile_name,
                         "base_app_name": base_name,
-                        "base_app_path": base_path,
+                        "base_app_path": resolved_base or base_path,
                         "data_dir": data_dir,
                         "badge_color": badge_color,
                         "bundle_id": bundle_id,
+                        "version": clone_version,
+                        "base_version": base_version,
+                        "needs_update": needs_update,
+                        "has_auto_sync": has_auto_sync,
                         "is_running": is_running,
                         "data_size": data_size_str
                     })
@@ -678,7 +952,7 @@ exec "$DIR/{exec_name}_orig" --user-data-dir="$DATA_DIR/data" "$@"
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Cloner Engine CLI")
-    parser.add_argument("command", choices=["scan", "create", "list", "delete", "launch", "reveal", "open-data"])
+    parser.add_argument("command", choices=["scan", "create", "list", "delete", "launch", "reveal", "open-data", "sync", "sync-all"])
     parser.add_argument("--app-path", help="Path to base app")
     parser.add_argument("--profile", help="Profile name")
     parser.add_argument("--color", default="#3B82F6", help="Badge hex color")
@@ -686,6 +960,8 @@ if __name__ == "__main__":
     parser.add_argument("--clone-path", help="Path to clone app bundle")
     parser.add_argument("--remove-data", action="store_true", help="Delete isolated data directory")
     parser.add_argument("--data-dir", help="Data directory path")
+    parser.add_argument("--force", action="store_true", help="Force sync even if version matches")
+    parser.add_argument("--stop-if-running", action="store_true", help="Stop running clone processes before syncing")
 
     args = parser.parse_args()
     engine = ClonerEngine()
@@ -699,6 +975,12 @@ if __name__ == "__main__":
     elif args.command == "list":
         clones = engine.list_active_clones()
         print(json.dumps(clones, indent=2))
+    elif args.command == "sync":
+        res = engine.sync_app_clone(args.clone_path, force=args.force, stop_if_running=args.stop_if_running)
+        print(json.dumps(res, indent=2))
+    elif args.command == "sync-all":
+        res = engine.sync_outdated_clones()
+        print(json.dumps(res, indent=2))
     elif args.command == "delete":
         res = engine.delete_app_clone(args.clone_path, args.remove_data)
         print(json.dumps({"success": res}))

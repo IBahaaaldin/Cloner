@@ -131,6 +131,20 @@ class ClonerBridgeHandler: NSObject, WKScriptMessageHandler {
                     responseData["success"] = true
                 }
 
+            case "syncClone":
+                let clonePath = payload["clone_path"] as? String ?? ""
+                let stopIfRunning = payload["stop_if_running"] as? Bool ?? false
+                var args = ["sync", "--clone-path", clonePath, "--force"]
+                if stopIfRunning {
+                    args.append("--stop-if-running")
+                }
+                let result = self.runEngineDict(args: args)
+                responseData = result
+
+            case "syncAllClones":
+                let result = self.runEngineDict(args: ["sync-all"])
+                responseData = result
+
             case "deleteClone":
                 let clonePath = payload["clone_path"] as? String ?? ""
                 let removeData = payload["remove_data"] as? Bool ?? false
@@ -343,10 +357,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
     }
 
     @objc func showAboutPanel() {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2"
         let options: [NSApplication.AboutPanelOptionKey: Any] = [
             .applicationName: "Cloner",
-            .applicationVersion: "1.0.1",
-            .version: "v1.0.1 (Apple Silicon)",
+            .applicationVersion: appVersion,
+            .version: "v\(appVersion) (Apple Silicon)",
             .credits: NSAttributedString(
                 string: "Created by Bahaa Mohammed\n• Instagram: @ibahaaaldincoding\n• GitHub: @IBahaaaldin\n• LinkedIn: Bahaa Mohammed\n• Email: bahaam.coding@gmail.com",
                 attributes: [
@@ -401,7 +416,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelega
             }
 
             let releaseNotes = json["release_notes"] as? String ?? "Includes latest stability improvements and features."
-            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1"
+            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2"
 
             DispatchQueue.main.async {
                 if currentVersion.compare(remoteVersion, options: .numeric) == .orderedAscending {

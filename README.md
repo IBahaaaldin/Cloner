@@ -6,8 +6,8 @@
 
 <div align="center">
 
-[![Download Cloner DMG](https://img.shields.io/badge/Download_DMG-v1.0.0_macOS-0066cc?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/IBahaaaldin/Cloner/raw/main/Cloner.dmg)
-[![Download Cloner ZIP](https://img.shields.io/badge/Download_ZIP-v1.0.0_macOS-10B981?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/IBahaaaldin/Cloner/raw/main/Cloner.zip)
+[![Download Cloner DMG](https://img.shields.io/badge/Download_DMG-v1.0.2_macOS-0066cc?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/IBahaaaldin/Cloner/raw/main/Cloner.dmg)
+[![Download Cloner ZIP](https://img.shields.io/badge/Download_ZIP-v1.0.2_macOS-10B981?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/IBahaaaldin/Cloner/raw/main/Cloner.zip)
 [![macOS 14+](https://img.shields.io/badge/macOS-14.0%2B-000000?style=for-the-badge&logo=apple)](https://apple.com)
 [![Architecture: Apple Silicon](https://img.shields.io/badge/Architecture-Apple_Silicon_arm64-8B5CF6?style=for-the-badge)](https://apple.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge)](LICENSE)
@@ -62,6 +62,8 @@ curl -sSL https://raw.githubusercontent.com/IBahaaaldin/Cloner/main/install.sh |
 ## ✨ Core Features
 
 - **⚡ Instant APFS Cloning (<1s)**: Leverages Apple File System copy-on-write (`cp -cR`). A full application clone creates in under a second and takes **0 extra disk space**.
+- **🔄 Auto-Sync Clone Updates**: Cloned apps automatically sync to match base app updates on launch (or in 1 click inside Cloner) without losing logins, sessions, or chats.
+- **🚀 Built-in Cloner Auto-Updater**: Checks GitHub in the background for new Cloner releases with 1-click update & relaunch.
 - **👥 Simultaneous Multi-Account Sessions**: Launch and keep your **Work** and **Personal** accounts open side-by-side at the same time. Never log out or switch profiles again.
 - **🔒 True ProcessSingleton Isolation**: Overrides Chromium & Electron singleton sockets and profile directories, allowing multiple identical apps to run concurrently without redirecting focus to the main window.
 - **🛡️ macOS Keychain & Privacy Safe**: Automatic Keychain linkage guarantees that macOS Security Services will never prompt you to reset your keychain passwords.
@@ -90,7 +92,8 @@ Cloner automatically detects installed macOS desktop applications that have auth
 
 ```text
 ├── Cloner.dmg              # 1-Click standalone macOS distribution installer
-├── Cloner-1.0.0.dmg        # Versioned distribution disk image
+├── Cloner-1.0.2.dmg        # Versioned distribution disk image
+├── Cloner.zip              # Direct standalone app archive (no DMG mounting)
 ├── Cloner.app/             # Pre-built standalone native macOS application bundle
 ├── cover.png               # Widescreen cover banner for GitHub (2560x1280)
 ├── cover-instagram.png     # Slide 1: High-res square Instagram cover (2160x2160)

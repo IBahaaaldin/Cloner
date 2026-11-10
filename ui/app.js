@@ -110,10 +110,24 @@
     renderAppsGallery();
   }
 
-  async function loadClones() {
+  async function loadClones(skipAutoSync = false) {
     const res = await postNativeMessage("getClones");
     activeClones = res.clones || [];
     renderClonesGrid();
+
+    if (!skipAutoSync) {
+      const candidates = activeClones.filter(
+        c => !c.is_running && (c.needs_update || c.has_auto_sync === false)
+      );
+      if (candidates.length > 0) {
+        const syncRes = await postNativeMessage("syncAllClones");
+        if (syncRes && Array.isArray(syncRes.synced) && syncRes.synced.length > 0) {
+          const updatedNames = syncRes.synced.map(s => `${s.name} (v${s.new_version})`).join(", ");
+          showToast(`Auto-updated ${updatedNames}`);
+        }
+        await loadClones(true);
+      }
+    }
   }
 
   function renderAppsGallery() {
@@ -195,6 +209,17 @@
 
       const iconUrl = clone.icon_base64 ? `data:image/png;base64,${clone.icon_base64}` : getAppSvgIcon(clone.base_app_name.toLowerCase());
 
+      const versionTag = clone.version ? `<span>•</span><span>v${clone.version}</span>` : "";
+      const updateBtnHtml = clone.needs_update
+        ? `<button class="btn-sync-update" title="Update from v${clone.version} to v${clone.base_version} (keeps all logins & chats)">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+               <polyline points="23 4 23 10 17 10"></polyline>
+               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+             </svg>
+             v${clone.base_version}
+           </button>`
+        : "";
+
       card.innerHTML = `
         <div class="clone-header">
           <div class="clone-icon-wrapper">
@@ -207,6 +232,7 @@
               <span>Profile: <strong>${clone.profile_name}</strong></span>
               <span>•</span>
               <span>${clone.data_size || '0 MB'}</span>
+              ${versionTag}
               <span>•</span>
               <span class="status-indicator ${clone.is_running ? 'running' : 'ready'}">
                 <span class="status-dot"></span>
@@ -223,6 +249,7 @@
             </svg>
             Open
           </button>
+          ${updateBtnHtml}
           <button class="btn-icon-action finder" title="Reveal .app in Finder">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -246,6 +273,10 @@
 
       // Event handlers
       card.querySelector(".btn-launch").addEventListener("click", () => launchClone(clone.path));
+      const updateBtn = card.querySelector(".btn-sync-update");
+      if (updateBtn) {
+        updateBtn.addEventListener("click", () => syncClone(clone));
+      }
       card.querySelector(".btn-icon-action.finder").addEventListener("click", () => revealInFinder(clone.path));
       card.querySelector(".btn-icon-action.data").addEventListener("click", () => openDataFolder(clone.data_dir));
       card.querySelector(".btn-icon-action.delete").addEventListener("click", () => deleteClone(clone));
@@ -304,9 +335,9 @@
       });
 
       if (res && res.success) {
-        showToast(`Created ${res.clone_name} in Cloner folder!`);
+        showToast(`Created ${res.clone_name} on Desktop!`);
         closeModal();
-        await loadClones();
+        await loadClones(true);
       } else {
         alert("Error creating clone: " + (res.error || "Unknown error"));
         btnConfirmClone.classList.remove("loading");
@@ -322,6 +353,33 @@
   async function launchClone(clonePath) {
     showToast("Launching app clone...");
     await postNativeMessage("launchClone", { clone_path: clonePath });
+  }
+
+  async function syncClone(clone) {
+    let stopIfRunning = false;
+    if (clone.is_running) {
+      const ok = confirm(
+        `"${clone.name}" is currently open.\n\nQuit briefly to update from v${clone.version} to v${clone.base_version} and relaunch automatically?\n\nYour accounts, logins, and chats stay 100% intact.`
+      );
+      if (!ok) return;
+      stopIfRunning = true;
+    }
+
+    showToast(`Updating ${clone.name} to v${clone.base_version}...`);
+    const res = await postNativeMessage("syncClone", {
+      clone_path: clone.path,
+      stop_if_running: stopIfRunning
+    });
+
+    if (res && res.success) {
+      showToast(`Updated ${clone.name} to v${res.new_version || clone.base_version}`);
+      await loadClones(true);
+      if (stopIfRunning) {
+        await postNativeMessage("launchClone", { clone_path: clone.path });
+      }
+    } else {
+      alert("Failed to update clone: " + ((res && res.error) || "Unknown error"));
+    }
   }
 
   async function revealInFinder(path) {
